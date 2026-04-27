@@ -667,13 +667,7 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
         priority = getattr(row, "priority", "")
         title = _clean_text(getattr(row, "title", ""))
         content = _clean_text(getattr(row, "content", ""))
-        headline = title or _truncate_text(content, 34) or "未填寫內容"
-        detail = _truncate_text(content, 42) if title and content else ""
-        meta = f"{getattr(row, 'bed', '')}床 {getattr(row, 'name', '')}｜{priority or '一般'}｜{getattr(row, 'target_date', '')}"
-        label_parts = [meta, headline]
-        if detail:
-            label_parts.append(detail)
-        label = "｜".join(label_parts)
+        label = _truncate_text(content, 54) or title or "未填寫內容"
         if st.button(
             label,
             key=f"handoff-reminder-{getattr(row, 'row_id', row.chart_no)}",
