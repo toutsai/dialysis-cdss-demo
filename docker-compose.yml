@@ -1,0 +1,11 @@
+services:
+  nocodb:
+    image: nocodb/nocodb:latest
+    container_name: dialysis-cdss-nocodb
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nocodb-data:/usr/app/data
+    environment:
+      NC_PUBLIC_URL: http://localhost:8080
+      NC_DISABLE_TELE: "true"

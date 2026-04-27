@@ -1,0 +1,37 @@
+version: 1
+last_updated: "2026-04-27"
+
+esa:
+  enabled: true
+  hb_low: 10.0
+  hb_high: 11.5
+  hb_critical_high: 12.0
+  increase_percent: 25
+  decrease_percent: 25
+  hold_if_hb_above: 12.5
+  require_iron_replete_before_increase: true
+  ferritin_replete_min: 100
+  tsat_replete_min: 20
+
+iron:
+  enabled: true
+  ferritin_low: 100
+  tsat_low: 20
+  ferritin_hold_above: 500
+  tsat_hold_above: 45
+  suggested_iv_iron_dose: "Venofer 100mg"
+  suggested_iv_iron_frequency: "每次透析後，連續 5 次；需醫師確認"
+
+mbd:
+  enabled: true
+  phosphate_high: 5.5
+  corrected_calcium_high: 10.2
+  calcium_phosphate_product_high: 55
+  ipth_high: 600
+  calcium_binder_decrease_percent: 25
+  prefer_non_calcium_binder_when_calcium_high: true
+  vitamin_d_hold_when_calcium_or_phosphate_high: true
+
+safety:
+  require_physician_approval: true
+  show_mock_data_warning: true

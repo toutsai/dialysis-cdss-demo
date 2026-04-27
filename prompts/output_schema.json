@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "required": ["physician_summary", "nursing_tasks", "risk_notes"],
+  "properties": {
+    "physician_summary": {
+      "type": "string"
+    },
+    "nursing_tasks": {
+      "type": "array",
+      "items": {"type": "string"}
+    },
+    "risk_notes": {
+      "type": "array",
+      "items": {"type": "string"}
+    }
+  }
+}

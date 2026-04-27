@@ -1,0 +1,14 @@
+anemia:
+  hb_low: 10.0
+  hb_high: 11.5
+  ferritin_low: 100
+  tsat_low: 20
+
+mbd:
+  phosphate_high: 5.5
+  corrected_calcium_high: 10.2
+  calcium_phosphate_product_high: 55
+  ipth_high: 600
+
+privacy:
+  min_age_bucket: 10
