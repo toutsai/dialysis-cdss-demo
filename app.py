@@ -325,9 +325,14 @@ st.markdown(
     div[data-testid="stMarkdownContainer"]:has(.cdss-handoff-button-marker) {
         height: 0 !important;
         min-height: 0 !important;
-        margin: 0 !important;
+        margin: -0.1rem 0 -0.35rem 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
+    }
+    div[data-testid="stElementContainer"]:has(.cdss-handoff-button-marker)
+        + div[data-testid="stElementContainer"] {
+        margin-top: 0 !important;
+        margin-bottom: 0.28rem !important;
     }
     div[data-testid="stElementContainer"]:has(.cdss-handoff-button-marker)
         + div[data-testid="stElementContainer"] div[data-testid="stButton"] > button,
