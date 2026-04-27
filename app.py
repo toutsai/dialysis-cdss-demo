@@ -153,19 +153,22 @@ st.markdown(
         color: #1d4ed8;
         background: #eff6ff;
     }
-    div[class*="st-key-patient-tab-"] [data-testid="stSegmentedControl"] label,
-    div[class*="st-key-patient-tab-"] [data-testid="stSegmentedControl"] p,
-    div[class*="st-key-patient-tab-"] [role="radiogroup"] label,
-    div[class*="st-key-patient-tab-"] [role="radiogroup"] label p {
-        font-size: 1.02rem !important;
+    .st-key-patient-tabs [data-testid="stSegmentedControl"],
+    .st-key-patient-tabs [data-testid="stSegmentedControl"] *,
+    .st-key-patient-tabs [role="radiogroup"],
+    .st-key-patient-tabs [role="radiogroup"] *,
+    .st-key-patient-tabs button,
+    .st-key-patient-tabs button * {
+        font-size: 1.1rem !important;
         font-weight: 850 !important;
         line-height: 1.25 !important;
     }
-    div[class*="st-key-patient-tab-"] [data-testid="stSegmentedControl"] label,
-    div[class*="st-key-patient-tab-"] [role="radiogroup"] label {
-        min-height: 2.25rem !important;
-        padding-top: 0.45rem !important;
-        padding-bottom: 0.45rem !important;
+    .st-key-patient-tabs [data-testid="stSegmentedControl"] label,
+    .st-key-patient-tabs [role="radiogroup"] label,
+    .st-key-patient-tabs button {
+        min-height: 2.45rem !important;
+        padding-top: 0.5rem !important;
+        padding-bottom: 0.5rem !important;
     }
     [data-testid="stSidebar"] {
         background: #eef6ff;
@@ -784,14 +787,15 @@ def _render_patient_panel(chart_no: str, current_user: str, current_role: str) -
     elif tab_key not in st.session_state:
         st.session_state[tab_key] = st.session_state.get("patient_tab", tab_options[0])
 
-    selected_tab = st.segmented_control(
-        "病人資料頁籤",
-        tab_options,
-        key=tab_key,
-        required=True,
-        label_visibility="collapsed",
-        width="stretch",
-    )
+    with st.container(key="patient-tabs"):
+        selected_tab = st.segmented_control(
+            "病人資料頁籤",
+            tab_options,
+            key=tab_key,
+            required=True,
+            label_visibility="collapsed",
+            width="stretch",
+        )
     st.session_state["patient_tab"] = selected_tab
 
     if selected_tab == "主要問題":
