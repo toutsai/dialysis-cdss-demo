@@ -5,7 +5,6 @@ import re
 from datetime import datetime
 from html import escape
 from pathlib import Path
-from urllib.parse import urlencode
 
 import pandas as pd
 import streamlit as st
@@ -666,28 +665,26 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
     _alert_summary(f"待處理交班：{len(due)} 件")
     for row in due.head(5).itertuples(index=False):
         priority = getattr(row, "priority", "")
-        urgent_class = " urgent" if priority in {"重要", "緊急"} else ""
         title = _clean_text(getattr(row, "title", ""))
         content = _clean_text(getattr(row, "content", ""))
         headline = title or _truncate_text(content, 34) or "未填寫內容"
         detail = _truncate_text(content, 42) if title and content else ""
         meta = f"{getattr(row, 'bed', '')}床 {getattr(row, 'name', '')}｜{priority or '一般'}｜{getattr(row, 'target_date', '')}"
-        detail_html = f'<div class="detail">{escape(detail)}</div>' if detail else ""
-        href = "?" + urlencode({
-            "selected_chart_no": str(row.chart_no),
-            "patient_tab": "醫護交班",
-            "handoff_row_id": str(getattr(row, "row_id", "")),
-        })
-        st.markdown(
-            f"""
-            <a class="cdss-handoff-alert{urgent_class}" href="{escape(href, quote=True)}" target="_self">
-                <div class="meta">{escape(meta)}</div>
-                <div class="headline">{escape(headline)}</div>
-                {detail_html}
-            </a>
-            """,
-            unsafe_allow_html=True,
-        )
+        label_parts = [meta, headline]
+        if detail:
+            label_parts.append(detail)
+        label = "｜".join(label_parts)
+        if st.button(
+            label,
+            key=f"handoff-reminder-{getattr(row, 'row_id', row.chart_no)}",
+            use_container_width=True,
+            type="primary" if priority in {"重要", "緊急"} else "secondary",
+        ):
+            st.session_state["selected_chart_no"] = str(row.chart_no)
+            st.session_state["patient_tab"] = "醫護交班"
+            st.session_state["patient_tab_target"] = "醫護交班"
+            st.session_state["handoff_focus_row_id"] = str(getattr(row, "row_id", ""))
+            st.rerun()
 
 
 def _render_bed_board(schedules: pd.DataFrame) -> str | None:
