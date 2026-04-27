@@ -153,6 +153,20 @@ st.markdown(
         color: #1d4ed8;
         background: #eff6ff;
     }
+    div[class*="st-key-patient-tab-"] [data-testid="stSegmentedControl"] label,
+    div[class*="st-key-patient-tab-"] [data-testid="stSegmentedControl"] p,
+    div[class*="st-key-patient-tab-"] [role="radiogroup"] label,
+    div[class*="st-key-patient-tab-"] [role="radiogroup"] label p {
+        font-size: 1.02rem !important;
+        font-weight: 850 !important;
+        line-height: 1.25 !important;
+    }
+    div[class*="st-key-patient-tab-"] [data-testid="stSegmentedControl"] label,
+    div[class*="st-key-patient-tab-"] [role="radiogroup"] label {
+        min-height: 2.25rem !important;
+        padding-top: 0.45rem !important;
+        padding-bottom: 0.45rem !important;
+    }
     [data-testid="stSidebar"] {
         background: #eef6ff;
         border-right: 1px solid #dbeafe;
