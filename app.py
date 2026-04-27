@@ -664,7 +664,6 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
     st.markdown("### 今日提醒")
     _alert_summary(f"待處理交班：{len(due)} 件")
     for row in due.head(5).itertuples(index=False):
-        priority = getattr(row, "priority", "")
         title = _clean_text(getattr(row, "title", ""))
         content = _clean_text(getattr(row, "content", ""))
         reminder_text = _truncate_text(content, 42) or title or "未填寫內容"
@@ -673,7 +672,7 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
             label,
             key=f"handoff-reminder-{getattr(row, 'row_id', row.chart_no)}",
             use_container_width=True,
-            type="primary" if priority in {"重要", "緊急"} else "secondary",
+            type="primary",
         ):
             st.session_state["selected_chart_no"] = str(row.chart_no)
             st.session_state["patient_tab"] = "醫護交班"
