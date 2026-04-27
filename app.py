@@ -320,6 +320,22 @@ st.markdown(
         line-height: 1.35;
         margin-top: 0.16rem;
     }
+    .cdss-handoff-reminders div[data-testid="stButton"] > button,
+    .cdss-handoff-reminders button[data-testid="stBaseButton-primary"],
+    .cdss-handoff-reminders button[data-testid="stBaseButton-secondary"] {
+        background: #fff7ed !important;
+        border-color: #fb923c !important;
+        color: #7c2d12 !important;
+        font-weight: 850 !important;
+        box-shadow: inset 5px 0 0 #ea580c !important;
+    }
+    .cdss-handoff-reminders div[data-testid="stButton"] > button:hover,
+    .cdss-handoff-reminders button[data-testid="stBaseButton-primary"]:hover,
+    .cdss-handoff-reminders button[data-testid="stBaseButton-secondary"]:hover {
+        background: #fed7aa !important;
+        border-color: #ea580c !important;
+        color: #7c2d12 !important;
+    }
     .cdss-panel {
         background: #f8fafc;
         border: 1px solid #dbeafe;
@@ -663,22 +679,25 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
 
     st.markdown("### 今日提醒")
     _alert_summary(f"待處理交班：{len(due)} 件")
-    for row in due.head(5).itertuples(index=False):
-        title = _clean_text(getattr(row, "title", ""))
-        content = _clean_text(getattr(row, "content", ""))
-        reminder_text = _truncate_text(content, 42) or title or "未填寫內容"
-        label = f"{getattr(row, 'bed', '')}床 {getattr(row, 'name', '')}｜{reminder_text}"
-        if st.button(
-            label,
-            key=f"handoff-reminder-{getattr(row, 'row_id', row.chart_no)}",
-            use_container_width=True,
-            type="primary",
-        ):
-            st.session_state["selected_chart_no"] = str(row.chart_no)
-            st.session_state["patient_tab"] = "醫護交班"
-            st.session_state["patient_tab_target"] = "醫護交班"
-            st.session_state["handoff_focus_row_id"] = str(getattr(row, "row_id", ""))
-            st.rerun()
+    st.markdown('<div class="cdss-handoff-reminders">', unsafe_allow_html=True)
+    with st.container():
+        for row in due.head(5).itertuples(index=False):
+            title = _clean_text(getattr(row, "title", ""))
+            content = _clean_text(getattr(row, "content", ""))
+            reminder_text = _truncate_text(content, 42) or title or "未填寫內容"
+            label = f"{getattr(row, 'bed', '')}床 {getattr(row, 'name', '')}｜{reminder_text}"
+            if st.button(
+                label,
+                key=f"handoff-reminder-{getattr(row, 'row_id', row.chart_no)}",
+                use_container_width=True,
+                type="primary",
+            ):
+                st.session_state["selected_chart_no"] = str(row.chart_no)
+                st.session_state["patient_tab"] = "醫護交班"
+                st.session_state["patient_tab_target"] = "醫護交班"
+                st.session_state["handoff_focus_row_id"] = str(getattr(row, "row_id", ""))
+                st.rerun()
+    st.markdown("</div>", unsafe_allow_html=True)
 
 
 def _render_bed_board(schedules: pd.DataFrame) -> str | None:
