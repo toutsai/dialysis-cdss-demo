@@ -82,18 +82,28 @@ st.markdown(
         max-width: 100%;
     }
     html, body, [class*="css"] {
-        font-size: 17px;
+        font-size: 18px;
+    }
+    input, textarea, select, [data-baseweb="select"] * {
+        font-size: 1rem !important;
     }
     h1 {
-        font-size: 1.55rem !important;
+        font-size: 1.72rem !important;
         margin-bottom: 0.45rem !important;
         line-height: 1.45 !important;
         padding-top: 0.35rem !important;
     }
     h2 {
+        font-size: 1.45rem !important;
         line-height: 1.55 !important;
         padding-top: 0.4rem !important;
         margin-top: 0.2rem !important;
+        margin-bottom: 0.35rem !important;
+    }
+    h3 {
+        font-size: 1.32rem !important;
+        line-height: 1.45 !important;
+        margin-top: 0.35rem !important;
         margin-bottom: 0.35rem !important;
     }
     h4, h5 {
@@ -101,7 +111,7 @@ st.markdown(
         margin-bottom: 0.35rem !important;
     }
     div[data-testid="stRadio"] label p {
-        font-size: 1rem;
+        font-size: 1.04rem;
     }
     div[role="radiogroup"] label {
         background: #ffffff;
@@ -118,13 +128,13 @@ st.markdown(
     }
     div[data-testid="stButton"] > button {
         justify-content: flex-start;
-        min-height: 2.18rem;
-        font-size: 0.9rem;
+        min-height: 2.45rem;
+        font-size: 1rem;
         border-radius: 8px;
         border-color: #dbeafe;
         background: #ffffff;
         color: #0f172a;
-        padding: 0.18rem 0.34rem;
+        padding: 0.26rem 0.48rem;
         text-align: left;
     }
     div[data-testid="stButton"] > button p {
@@ -191,8 +201,8 @@ st.markdown(
     }
     .stTabs [data-baseweb="tab"] {
         color: #334155;
-        padding: 0.6rem 0.75rem;
-        font-size: 1rem;
+        padding: 0.65rem 0.85rem;
+        font-size: 1.05rem;
         white-space: nowrap;
     }
     .stTabs [aria-selected="true"] {
@@ -209,19 +219,19 @@ st.markdown(
     }
     .cdss-card .label {
         color: #475569;
-        font-size: 0.76rem;
+        font-size: 0.82rem;
         font-weight: 650;
         margin-bottom: 0.06rem;
     }
     .cdss-card .value {
         color: #0f172a;
-        font-size: 1.2rem;
+        font-size: 1.28rem;
         line-height: 1.2;
         font-weight: 800;
     }
     .cdss-card .subvalue {
         color: #475569;
-        font-size: 0.78rem;
+        font-size: 0.84rem;
         margin-top: 0.08rem;
     }
     .cdss-blue {
@@ -250,14 +260,14 @@ st.markdown(
     }
     .cdss-patient-name {
         color: #0f172a;
-        font-size: 1.45rem;
+        font-size: 1.56rem;
         font-weight: 850;
         line-height: 1.5;
         padding-top: 0.1rem;
     }
     .cdss-patient-meta {
         color: #334155;
-        font-size: 1rem;
+        font-size: 1.05rem;
         margin-top: 0.22rem;
     }
     .cdss-pill {
@@ -269,6 +279,7 @@ st.markdown(
         margin-right: 0.35rem;
         margin-top: 0.25rem;
         font-weight: 700;
+        font-size: 0.96rem;
     }
     .cdss-compact-summary {
         background: #f8fafc;
@@ -367,7 +378,7 @@ st.markdown(
     }
     .cdss-panel-title {
         color: #0f172a;
-        font-size: 1.05rem;
+        font-size: 1.12rem;
         font-weight: 850;
         margin-bottom: 0.35rem;
     }
@@ -376,6 +387,103 @@ st.markdown(
         border-color: #2563eb !important;
         color: #1d4ed8 !important;
         font-weight: 800 !important;
+    }
+    .cdss-mobile-hint {
+        display: none;
+    }
+    @media (max-width: 780px) {
+        .block-container {
+            padding-top: 0.85rem;
+            padding-left: 0.55rem;
+            padding-right: 0.55rem;
+            padding-bottom: 1.2rem;
+        }
+        html, body, [class*="css"] {
+            font-size: 18.5px;
+        }
+        h1 {
+            font-size: 1.55rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+        h2 {
+            font-size: 1.28rem !important;
+        }
+        h3 {
+            font-size: 1.16rem !important;
+        }
+        .cdss-mobile-hint {
+            display: block;
+            background: #ecfeff;
+            border: 1px solid #67e8f9;
+            border-left: 5px solid #0891b2;
+            color: #155e75;
+            border-radius: 10px;
+            font-weight: 800;
+            padding: 0.55rem 0.65rem;
+            margin: 0.15rem 0 0.7rem 0;
+        }
+        .st-key-workbench-list {
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 0.85rem;
+            margin-bottom: 0.85rem;
+        }
+        .st-key-workbench-detail {
+            padding-top: 0.15rem;
+        }
+        .st-key-bed-board-list div[data-testid="stVerticalBlockBorderWrapper"] {
+            height: 42vh !important;
+            max-height: 42vh !important;
+            overflow-y: auto !important;
+        }
+        .st-key-bed-board-list div[data-testid="stButton"] > button,
+        .st-key-handoff-reminders div[data-testid="stButton"] > button {
+            min-height: 2.8rem;
+            font-size: 1.02rem !important;
+            border-radius: 10px;
+            padding-left: 0.55rem;
+            padding-right: 0.55rem;
+        }
+        .cdss-patient-banner {
+            position: sticky;
+            top: 0.25rem;
+            z-index: 5;
+            padding: 0.8rem 0.75rem 0.62rem 0.75rem;
+            margin-top: 0.25rem;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+        }
+        .cdss-patient-name {
+            font-size: 1.28rem;
+            line-height: 1.35;
+        }
+        .cdss-patient-meta {
+            font-size: 0.94rem;
+        }
+        .cdss-pill {
+            font-size: 0.88rem;
+            padding: 0.16rem 0.48rem;
+            margin-right: 0.22rem;
+        }
+        .st-key-patient-tabs [data-testid="stSegmentedControl"],
+        .st-key-patient-tabs [role="radiogroup"] {
+            overflow-x: auto !important;
+            flex-wrap: nowrap !important;
+        }
+        .st-key-patient-tabs [data-testid="stSegmentedControl"] label,
+        .st-key-patient-tabs [role="radiogroup"] label,
+        .st-key-patient-tabs button {
+            min-width: max-content !important;
+            min-height: 2.55rem !important;
+            font-size: 1.02rem !important;
+        }
+        .st-key-patient-tabs [data-testid="stSegmentedControl"] *,
+        .st-key-patient-tabs [role="radiogroup"] *,
+        .st-key-patient-tabs button * {
+            font-size: 1.02rem !important;
+            font-weight: 850 !important;
+        }
+        div[data-testid="stDataFrame"] {
+            font-size: 0.95rem;
+        }
     }
     </style>
     """,
@@ -532,16 +640,22 @@ def main() -> None:
         return
 
     schedules = db.schedules()
+    st.markdown(
+        '<div class="cdss-mobile-hint">手機操作：先選頻率、班別與病人；選定後，病人詳情會顯示在下方。</div>',
+        unsafe_allow_html=True,
+    )
     list_col, detail_col = st.columns([0.8, 3.2], gap="medium")
     with list_col:
-        filtered = _render_bed_filters(schedules)
-        _render_due_handoff_alerts(filtered)
-        selected_chart_no = _render_bed_board(filtered)
+        with st.container(key="workbench-list"):
+            filtered = _render_bed_filters(schedules)
+            _render_due_handoff_alerts(filtered)
+            selected_chart_no = _render_bed_board(filtered)
     with detail_col:
-        if selected_chart_no:
-            _render_patient_panel(selected_chart_no, current_user, current_role)
-        else:
-            st.info("請先從左側病人列表選取病人。")
+        with st.container(key="workbench-detail"):
+            if selected_chart_no:
+                _render_patient_panel(selected_chart_no, current_user, current_role)
+            else:
+                st.info("請先從左側病人列表選取病人。")
 
 
 def _load_deployment_settings() -> None:
@@ -734,7 +848,7 @@ def _render_bed_board(schedules: pd.DataFrame) -> str | None:
         selected_chart_no = available_chart_nos[0]
         st.session_state["selected_chart_no"] = selected_chart_no
 
-    with st.container(height=640, border=True):
+    with st.container(height=640, border=True, key="bed-board-list"):
         for row in schedules.itertuples(index=False):
             chart_no = str(row.chart_no)
             selected_mark = "▶ " if chart_no == selected_chart_no else ""
