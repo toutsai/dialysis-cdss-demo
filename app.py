@@ -391,6 +391,9 @@ st.markdown(
     .cdss-mobile-hint {
         display: none;
     }
+    .st-key-mobile-workbench {
+        display: none;
+    }
     @media (max-width: 780px) {
         .block-container {
             padding-top: 0.85rem;
@@ -422,21 +425,25 @@ st.markdown(
             padding: 0.55rem 0.65rem;
             margin: 0.15rem 0 0.7rem 0;
         }
-        .st-key-workbench-list {
-            border-bottom: 1px solid #cbd5e1;
-            padding-bottom: 0.85rem;
-            margin-bottom: 0.85rem;
+        .st-key-desktop-workbench {
+            display: none !important;
         }
-        .st-key-workbench-detail {
+        .st-key-mobile-workbench {
+            display: block;
+        }
+        .st-key-mobile-selector {
+            padding-bottom: 0.55rem;
+        }
+        .st-key-mobile-detail {
             padding-top: 0.15rem;
         }
-        .st-key-bed-board-list div[data-testid="stVerticalBlockBorderWrapper"] {
+        .st-key-mobile-bed-board-list div[data-testid="stVerticalBlockBorderWrapper"] {
             height: 42vh !important;
             max-height: 42vh !important;
             overflow-y: auto !important;
         }
-        .st-key-bed-board-list div[data-testid="stButton"] > button,
-        .st-key-handoff-reminders div[data-testid="stButton"] > button {
+        .st-key-mobile-bed-board-list div[data-testid="stButton"] > button,
+        .st-key-mobile-handoff-reminders div[data-testid="stButton"] > button {
             min-height: 2.8rem;
             font-size: 1.02rem !important;
             border-radius: 10px;
@@ -640,22 +647,19 @@ def main() -> None:
         return
 
     schedules = db.schedules()
-    st.markdown(
-        '<div class="cdss-mobile-hint">手機操作：先選頻率、班別與病人；選定後，病人詳情會顯示在下方。</div>',
-        unsafe_allow_html=True,
-    )
-    list_col, detail_col = st.columns([0.8, 3.2], gap="medium")
-    with list_col:
-        with st.container(key="workbench-list"):
-            filtered = _render_bed_filters(schedules)
-            _render_due_handoff_alerts(filtered)
-            selected_chart_no = _render_bed_board(filtered)
-    with detail_col:
-        with st.container(key="workbench-detail"):
+    with st.container(key="desktop-workbench"):
+        list_col, detail_col = st.columns([0.8, 3.2], gap="medium")
+        with list_col:
+            filtered = _render_bed_filters(schedules, key_prefix="bed")
+            _render_due_handoff_alerts(filtered, key_prefix="handoff", container_key="handoff-reminders")
+            selected_chart_no = _render_bed_board(filtered, key_prefix="patient", container_key="bed-board-list")
+        with detail_col:
             if selected_chart_no:
                 _render_patient_panel(selected_chart_no, current_user, current_role)
             else:
                 st.info("請先從左側病人列表選取病人。")
+
+    _render_mobile_workbench(schedules, current_user, current_role)
 
 
 def _load_deployment_settings() -> None:
@@ -744,7 +748,40 @@ def _render_login_sidebar() -> tuple[str, str]:
     return "", ""
 
 
-def _render_bed_filters(schedules: pd.DataFrame) -> pd.DataFrame:
+def _render_mobile_workbench(schedules: pd.DataFrame, current_user: str, current_role: str) -> None:
+    with st.container(key="mobile-workbench"):
+        selected_chart_no = st.session_state.get("selected_chart_no")
+        view = st.session_state.get("mobile_workbench_view", "selector")
+        if view == "detail" and selected_chart_no:
+            with st.container(key="mobile-detail"):
+                if st.button("← 回病人選擇", key="mobile-back-to-selector", use_container_width=True):
+                    st.session_state["mobile_workbench_view"] = "selector"
+                    st.rerun()
+                _render_patient_panel(str(selected_chart_no), current_user, current_role)
+            return
+
+        with st.container(key="mobile-selector"):
+            st.markdown(
+                '<div class="cdss-mobile-hint">手機版：先選班別與病人；點選病人後會進入病人詳情頁。</div>',
+                unsafe_allow_html=True,
+            )
+            filtered = _render_bed_filters(schedules, key_prefix="mobile_bed")
+            _render_due_handoff_alerts(
+                filtered,
+                key_prefix="mobile_handoff",
+                container_key="mobile-handoff-reminders",
+                switch_mobile_to_detail=True,
+            )
+            _render_bed_board(
+                filtered,
+                key_prefix="mobile_patient",
+                container_key="mobile-bed-board-list",
+                height=520,
+                switch_mobile_to_detail=True,
+            )
+
+
+def _render_bed_filters(schedules: pd.DataFrame, key_prefix: str = "bed") -> pd.DataFrame:
     total_count = len(schedules)
     st.markdown(f"## 床位總表｜{total_count} 人")
     if schedules.empty:
@@ -754,7 +791,10 @@ def _render_bed_filters(schedules: pd.DataFrame) -> pd.DataFrame:
     frequencies = sorted([x for x in schedules["frequency"].dropna().unique() if str(x).strip()])
     if not frequencies:
         frequencies = ["全部"]
-    default_freq = st.session_state.get("bed_freq")
+    freq_key = f"{key_prefix}_freq"
+    shift_key = f"{key_prefix}_shift"
+    keyword_key = f"{key_prefix}_keyword"
+    default_freq = st.session_state.get(freq_key)
     if default_freq not in frequencies:
         default_freq = frequencies[0]
 
@@ -766,14 +806,14 @@ def _render_bed_filters(schedules: pd.DataFrame) -> pd.DataFrame:
             frequencies,
             index=frequencies.index(default_freq),
             label_visibility="collapsed",
-            key="bed_freq",
+            key=freq_key,
         )
 
     shift_base = schedules[schedules["frequency"] == freq]
     shifts = sorted([x for x in shift_base["shift"].dropna().unique() if str(x).strip()])
     if not shifts:
         shifts = ["全部"]
-    default_shift = st.session_state.get("bed_shift")
+    default_shift = st.session_state.get(shift_key)
     if default_shift not in shifts:
         default_shift = shifts[0]
 
@@ -782,11 +822,18 @@ def _render_bed_filters(schedules: pd.DataFrame) -> pd.DataFrame:
         shift = st.radio(
             "班別",
             shifts,
+            index=shifts.index(default_shift),
             label_visibility="collapsed",
-            key="bed_shift",
+            key=shift_key,
         )
 
-    keyword = st.text_input("搜尋姓名 / 病歷號 / 床號", "", label_visibility="collapsed", placeholder="搜尋姓名 / 病歷號 / 床號")
+    keyword = st.text_input(
+        "搜尋姓名 / 病歷號 / 床號",
+        "",
+        label_visibility="collapsed",
+        placeholder="搜尋姓名 / 病歷號 / 床號",
+        key=keyword_key,
+    )
 
     out = schedules.copy()
     out = out[out["frequency"] == freq]
@@ -803,7 +850,12 @@ def _render_bed_filters(schedules: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
+def _render_due_handoff_alerts(
+    filtered_schedules: pd.DataFrame,
+    key_prefix: str = "handoff",
+    container_key: str = "handoff-reminders",
+    switch_mobile_to_detail: bool = False,
+) -> None:
     due = db.due_handoffs(datetime.now().date().isoformat())
     if due.empty:
         return
@@ -815,7 +867,7 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
 
     st.markdown("### 今日提醒")
     _alert_summary(f"待處理交班：{len(due)} 件")
-    with st.container(key="handoff-reminders"):
+    with st.container(key=container_key):
         for row in due.head(5).itertuples(index=False):
             title = _clean_text(getattr(row, "title", ""))
             content = _clean_text(getattr(row, "content", ""))
@@ -823,7 +875,7 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
             label = f"{getattr(row, 'bed', '')}床 {getattr(row, 'name', '')}｜{reminder_text}"
             if st.button(
                 label,
-                key=f"handoff-reminder-{getattr(row, 'row_id', row.chart_no)}",
+                key=f"{key_prefix}-reminder-{getattr(row, 'row_id', row.chart_no)}",
                 use_container_width=True,
                 type="primary",
             ):
@@ -831,10 +883,18 @@ def _render_due_handoff_alerts(filtered_schedules: pd.DataFrame) -> None:
                 st.session_state["patient_tab"] = "醫護交班"
                 st.session_state["patient_tab_target"] = "醫護交班"
                 st.session_state["handoff_focus_row_id"] = str(getattr(row, "row_id", ""))
+                if switch_mobile_to_detail:
+                    st.session_state["mobile_workbench_view"] = "detail"
                 st.rerun()
 
 
-def _render_bed_board(schedules: pd.DataFrame) -> str | None:
+def _render_bed_board(
+    schedules: pd.DataFrame,
+    key_prefix: str = "patient",
+    container_key: str = "bed-board-list",
+    height: int = 640,
+    switch_mobile_to_detail: bool = False,
+) -> str | None:
     if schedules.empty:
         st.info("目前篩選條件下沒有病人。")
         return None
@@ -848,15 +908,17 @@ def _render_bed_board(schedules: pd.DataFrame) -> str | None:
         selected_chart_no = available_chart_nos[0]
         st.session_state["selected_chart_no"] = selected_chart_no
 
-    with st.container(height=640, border=True, key="bed-board-list"):
+    with st.container(height=height, border=True, key=container_key):
         for row in schedules.itertuples(index=False):
             chart_no = str(row.chart_no)
             selected_mark = "▶ " if chart_no == selected_chart_no else ""
             label = f"{selected_mark}{row.bed}床 {row.name} {row.chart_no} AK {row.dialyzer} Ca {row.dialysate_ca}"
             button_type = "primary" if chart_no == selected_chart_no else "secondary"
-            if st.button(label, key=f"patient-row-{chart_no}", use_container_width=True, type=button_type):
+            if st.button(label, key=f"{key_prefix}-row-{chart_no}", use_container_width=True, type=button_type):
                 st.session_state["selected_chart_no"] = chart_no
                 selected_chart_no = chart_no
+                if switch_mobile_to_detail:
+                    st.session_state["mobile_workbench_view"] = "detail"
                 st.rerun()
 
     return selected_chart_no
