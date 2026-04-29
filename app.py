@@ -707,6 +707,11 @@ def main() -> None:
         return
 
     schedules = db.schedules()
+    selected_chart_no = st.session_state.get("selected_chart_no")
+    mobile_detail_active = (
+        st.session_state.get("mobile_workbench_view") == "detail"
+        and bool(selected_chart_no)
+    )
     with st.container(key="desktop-workbench"):
         list_col, detail_col = st.columns([0.8, 3.2], gap="medium")
         with list_col:
@@ -714,7 +719,12 @@ def main() -> None:
             _render_due_handoff_alerts(filtered, key_prefix="handoff", container_key="handoff-reminders")
             selected_chart_no = _render_bed_board(filtered, key_prefix="patient", container_key="bed-board-list")
         with detail_col:
-            if selected_chart_no:
+            if mobile_detail_active:
+                st.info("目前在手機詳情模式；若使用桌機版，請按下方按鈕恢復桌機詳情。")
+                if st.button("恢復桌機詳情", key="restore-desktop-detail", use_container_width=True):
+                    st.session_state["mobile_workbench_view"] = "selector"
+                    st.rerun()
+            elif selected_chart_no:
                 _render_patient_panel(selected_chart_no, current_user, current_role)
             else:
                 st.info("請先從左側病人列表選取病人。")
@@ -979,6 +989,8 @@ def _render_bed_board(
                 selected_chart_no = chart_no
                 if switch_mobile_to_detail:
                     st.session_state["mobile_workbench_view"] = "detail"
+                else:
+                    st.session_state["mobile_workbench_view"] = "selector"
                 st.rerun()
 
     return selected_chart_no
