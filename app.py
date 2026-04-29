@@ -565,6 +565,42 @@ def _value_text(value: object, default: str = "未填") -> str:
     return text if text else default
 
 
+def _env_flag(name: str, default: bool = False) -> bool:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    return raw.strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _mask_patient_info_enabled() -> bool:
+    if "mask_patient_info" not in st.session_state:
+        st.session_state["mask_patient_info"] = _env_flag("DIALYSIS_CDSS_MASK_PATIENT_INFO", False)
+    return bool(st.session_state.get("mask_patient_info"))
+
+
+def _patient_display_name(value: object) -> str:
+    name = _value_text(value, "")
+    if not _mask_patient_info_enabled() or not name:
+        return name or "未填"
+    chars = list(name)
+    if len(chars) == 1:
+        return f"{chars[0]}O"
+    if len(chars) == 2:
+        return f"{chars[0]}O"
+    return f"{chars[0]}{'O' * (len(chars) - 2)}{chars[-1]}"
+
+
+def _patient_display_chart_no(value: object) -> str:
+    chart_no = _value_text(value, "")
+    if not _mask_patient_info_enabled() or not chart_no:
+        return chart_no or "未填"
+    if len(chart_no) <= 3:
+        return f"{chart_no[0]}**" if chart_no else "未填"
+    if len(chart_no) <= 6:
+        return f"{chart_no[:1]}***{chart_no[-1:]}"
+    return f"{chart_no[:2]}***{chart_no[-2:]}"
+
+
 def _highlight_card(label: str, value: object, subvalue: str = "", tone: str = "blue") -> None:
     safe_label = escape(label)
     safe_value = escape(_value_text(value))
@@ -583,8 +619,8 @@ def _highlight_card(label: str, value: object, subvalue: str = "", tone: str = "
 
 
 def _patient_banner(patient: pd.Series, schedule: pd.Series | None) -> None:
-    name = escape(_value_text(patient.get("name")))
-    chart_no = escape(_value_text(patient.get("chart_no")))
+    name = escape(_patient_display_name(patient.get("name")))
+    chart_no = escape(_patient_display_chart_no(patient.get("chart_no")))
     pills = []
     if schedule is not None:
         pills = [
@@ -624,8 +660,8 @@ def _patient_compact_header(
     dialyzer: object,
     dialysate_ca: object,
 ) -> None:
-    name = escape(_value_text(patient.get("name")))
-    chart_no = escape(_value_text(patient.get("chart_no")))
+    name = escape(_patient_display_name(patient.get("name")))
+    chart_no = escape(_patient_display_chart_no(patient.get("chart_no")))
     pill_values = [
         f"DW {_value_text(dry_weight)}",
         f"AK {_value_text(dialyzer)}",
@@ -733,7 +769,7 @@ def main() -> None:
 
 
 def _load_deployment_settings() -> None:
-    for key in ["DIALYSIS_CDSS_DEMO", "DIALYSIS_CDSS_DB_PATH"]:
+    for key in ["DIALYSIS_CDSS_DEMO", "DIALYSIS_CDSS_DB_PATH", "DIALYSIS_CDSS_MASK_PATIENT_INFO"]:
         if os.getenv(key):
             continue
         try:
@@ -763,6 +799,13 @@ def _render_sidebar() -> None:
         return "", "", ""
 
     page = st.sidebar.radio("頁面", ["查房工作台", "病人清單", "人員設定", "本院藥物清單", "規則設定"])
+    st.sidebar.checkbox(
+        "模糊病人資訊",
+        key="mask_patient_info",
+        help="只影響查房工作台顯示；資料庫仍保留原始姓名與病歷號。",
+    )
+    if _mask_patient_info_enabled():
+        st.sidebar.caption("姓名/病歷號已用於畫面顯示遮罩。")
 
     if st.sidebar.button("重新同步 CSV", use_container_width=True):
         db.sync_seed_csv()
@@ -942,7 +985,7 @@ def _render_due_handoff_alerts(
             title = _clean_text(getattr(row, "title", ""))
             content = _clean_text(getattr(row, "content", ""))
             reminder_text = _truncate_text(content, 42) or title or "未填寫內容"
-            label = f"{getattr(row, 'bed', '')}床 {getattr(row, 'name', '')}｜{reminder_text}"
+            label = f"{getattr(row, 'bed', '')}床 {_patient_display_name(getattr(row, 'name', ''))}｜{reminder_text}"
             if st.button(
                 label,
                 key=f"{key_prefix}-reminder-{getattr(row, 'row_id', row.chart_no)}",
@@ -982,7 +1025,10 @@ def _render_bed_board(
         for row in schedules.itertuples(index=False):
             chart_no = str(row.chart_no)
             selected_mark = "▶ " if chart_no == selected_chart_no else ""
-            label = f"{selected_mark}{row.bed}床 {row.name} {row.chart_no} AK {row.dialyzer} Ca {row.dialysate_ca}"
+            label = (
+                f"{selected_mark}{row.bed}床 {_patient_display_name(row.name)} "
+                f"{_patient_display_chart_no(row.chart_no)} AK {row.dialyzer} Ca {row.dialysate_ca}"
+            )
             button_type = "primary" if chart_no == selected_chart_no else "secondary"
             if st.button(label, key=f"{key_prefix}-row-{chart_no}", use_container_width=True, type=button_type):
                 st.session_state["selected_chart_no"] = chart_no
