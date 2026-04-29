@@ -413,6 +413,8 @@ st.markdown(
         }
         h3 {
             font-size: 1.16rem !important;
+            margin-top: 0.18rem !important;
+            margin-bottom: 0.18rem !important;
         }
         .cdss-mobile-hint {
             display: block;
@@ -422,8 +424,9 @@ st.markdown(
             color: #155e75;
             border-radius: 10px;
             font-weight: 800;
-            padding: 0.55rem 0.65rem;
-            margin: 0.15rem 0 0.7rem 0;
+            padding: 0.38rem 0.52rem;
+            margin: 0.05rem 0 0.45rem 0;
+            line-height: 1.45;
         }
         .st-key-desktop-workbench {
             display: none !important;
@@ -433,6 +436,44 @@ st.markdown(
         }
         .st-key-mobile-selector {
             padding-bottom: 0.55rem;
+        }
+        .st-key-mobile-selector h2 {
+            margin-top: 0.15rem !important;
+            margin-bottom: 0.18rem !important;
+            padding-top: 0.1rem !important;
+        }
+        .st-key-mobile-selector .cdss-panel-title {
+            margin-top: 0.2rem !important;
+            margin-bottom: 0.12rem !important;
+            font-size: 1.02rem !important;
+        }
+        .st-key-mobile-selector div[data-testid="stRadio"] {
+            margin-bottom: 0.18rem !important;
+        }
+        .st-key-mobile-selector div[role="radiogroup"] {
+            display: flex !important;
+            flex-direction: row !important;
+            flex-wrap: wrap !important;
+            gap: 0.28rem !important;
+            align-items: center !important;
+        }
+        .st-key-mobile-selector div[role="radiogroup"] label {
+            min-height: 2.24rem !important;
+            margin: 0 !important;
+            padding: 0.28rem 0.5rem !important;
+            width: auto !important;
+        }
+        .st-key-mobile-selector div[role="radiogroup"] label p {
+            font-size: 1rem !important;
+            white-space: nowrap !important;
+        }
+        .st-key-mobile-selector div[data-testid="stTextInput"] {
+            margin-top: 0.18rem !important;
+            margin-bottom: 0.28rem !important;
+        }
+        .st-key-mobile-selector .cdss-compact-summary {
+            padding: 0.42rem 0.55rem;
+            margin: 0.12rem 0 0.45rem 0;
         }
         .st-key-mobile-detail {
             padding-top: 0.15rem;
@@ -449,6 +490,25 @@ st.markdown(
             border-radius: 10px;
             padding-left: 0.55rem;
             padding-right: 0.55rem;
+        }
+        .st-key-mobile-handoff-reminders div[data-testid="stVerticalBlock"],
+        .st-key-mobile-handoff-reminders div[data-testid="stVerticalBlockBorderWrapper"] {
+            gap: 0.18rem !important;
+        }
+        .st-key-mobile-handoff-reminders div[data-testid="stElementContainer"] {
+            margin-bottom: 0.12rem !important;
+        }
+        .st-key-mobile-handoff-reminders div[data-testid="stButton"] > button {
+            background: #fff7ed !important;
+            border-color: #fb923c !important;
+            color: #7c2d12 !important;
+            font-weight: 850 !important;
+            box-shadow: inset 5px 0 0 #ea580c !important;
+        }
+        .st-key-mobile-handoff-reminders div[data-testid="stButton"] > button:hover {
+            background: #fed7aa !important;
+            border-color: #ea580c !important;
+            color: #7c2d12 !important;
         }
         .cdss-patient-banner {
             position: sticky;
@@ -762,7 +822,7 @@ def _render_mobile_workbench(schedules: pd.DataFrame, current_user: str, current
 
         with st.container(key="mobile-selector"):
             st.markdown(
-                '<div class="cdss-mobile-hint">手機版：先選班別與病人；點選病人後會進入病人詳情頁。</div>',
+                '<div class="cdss-mobile-hint">手機版：先選班別與病人，點選後進入詳情頁。</div>',
                 unsafe_allow_html=True,
             )
             filtered = _render_bed_filters(schedules, key_prefix="mobile_bed")
