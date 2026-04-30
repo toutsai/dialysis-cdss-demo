@@ -65,3 +65,9 @@ def test_problem_owner_role_defaults_to_current_role():
     assert app._default_problem_owner_role_index("護理長", options) == 1
     assert app._default_problem_owner_role_index("護理師", options) == 2
     assert app._default_problem_owner_role_index("管理員", options) == 2
+
+
+def test_patient_email_mask_name_never_uses_chart_no():
+    assert app._patient_email_mask_name("黃大明") == "黃O明"
+    assert app._patient_email_mask_name("王美") == "王O"
+    assert app._patient_email_mask_name("") == "未填"

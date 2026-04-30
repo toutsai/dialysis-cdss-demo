@@ -2578,10 +2578,9 @@ def _problem_categories_label(value: object) -> str:
 def _notify_pending_problem_if_needed(patient: pd.Series, categories: list[str], current_user: str, created_at: str) -> None:
     if "現在待處理問題" not in categories:
         return
-    patient_label = f"{_patient_display_name(patient.get('name'))}｜{_patient_display_chart_no(patient.get('chart_no'))}"
     try:
         result = notify_new_pending_problem(
-            patient_label=patient_label,
+            patient_label=_patient_email_mask_name(patient.get("name")),
             bed=_clean_text(patient.get("bed")),
             created_by=current_user,
             created_at=created_at,
@@ -2591,6 +2590,17 @@ def _notify_pending_problem_if_needed(patient: pd.Series, categories: list[str],
         return
     level = "success" if result.sent else "info"
     st.session_state["problem_notification"] = (level, result.message)
+
+
+def _patient_email_mask_name(value: object) -> str:
+    name = _clean_text(value)
+    if not name:
+        return "未填"
+    if len(name) == 1:
+        return f"{name}O"
+    if len(name) == 2:
+        return f"{name[0]}O"
+    return f"{name[0]}{'O' * (len(name) - 2)}{name[-1]}"
 
 
 def _show_deferred_problem_notification() -> None:
