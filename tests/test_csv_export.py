@@ -28,6 +28,7 @@ def test_problem_list_rows_start_blank_but_link_patient():
         Patient(chart_no="12345A", name="測試病人", frequency="一三五", shift=Shift.MORNING)
     ], exported_at="2026-04-27T00:00:00")
     assert rows[0]["problem"] == ""
+    assert rows[0]["problem_categories"] == '["現在待處理問題"]'
     assert rows[0]["status"] == "Active"
     assert rows[0]["owner_role"] == "護理師"
     assert "priority" not in rows[0]

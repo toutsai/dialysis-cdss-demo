@@ -1,3 +1,5 @@
+import pandas as pd
+
 import app
 
 
@@ -18,3 +20,40 @@ def test_permissions_match_requested_roles():
     for role in ["醫師", "護理長", "護理師"]:
         assert app._can_edit(role, "problem_list")
         assert app._can_edit(role, "clinical_events")
+
+
+def test_problem_categories_can_filter_and_merge_without_dropping_rows():
+    rows = pd.DataFrame([
+        {
+            "row_id": "row-1",
+            "chart_no": "12345A",
+            "problem": "背景疾病",
+            "problem_categories": '["Underlying disease"]',
+            "status": "Active",
+        },
+        {
+            "row_id": "row-2",
+            "chart_no": "12345A",
+            "problem": "同時需要追蹤",
+            "problem_categories": '["Underlying disease","現在待處理問題"]',
+            "status": "Active",
+        },
+        {
+            "row_id": "row-3",
+            "chart_no": "12345A",
+            "problem": "待處理",
+            "problem_categories": '["現在待處理問題"]',
+            "status": "Active",
+        },
+    ])
+
+    current = app._filter_problem_rows(rows, "現在待處理問題")
+    assert set(current["row_id"]) == {"row-2", "row-3"}
+
+    edited = current.copy()
+    edited.loc[edited["row_id"] == "row-3", "status"] = "Inactive"
+    merged = app._merge_problem_rows(rows, edited)
+
+    assert set(merged["row_id"]) == {"row-1", "row-2", "row-3"}
+    assert merged.loc[merged["row_id"] == "row-1", "status"].iloc[0] == "Active"
+    assert merged.loc[merged["row_id"] == "row-3", "status"].iloc[0] == "Inactive"

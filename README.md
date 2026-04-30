@@ -183,7 +183,7 @@ exports/nocodb_seed/
 
 - `patients`: 查房病人清單、去識別化清單
 - `dialysis_schedule`: 床位總表、透析器與透析液檢查
-- `problem_list`: 主要問題列表
+- `problem_list`: 主要問題列表，`problem_categories` 使用 JSON array 區分 `Underlying disease` 與 `現在待處理問題`
 - `clinical_events`: 近期事件
 - `dialysis_orders`: 透析醫囑
 

@@ -43,6 +43,7 @@
 - `deid`
 - `name`
 - `problem`
+- `problem_categories`
 - `status`
 - `owner_role`
 - `updated_by`
@@ -52,11 +53,14 @@
 建議 NocoDB view：
 
 - `Active problems`：`status = Active`，依 `updated_at` 排序
-- `Nurse update list`：顯示 `name`, `problem`, `status`, `owner_role`, `updated_at`, `note`
+- `Underlying disease`：`problem_categories` 包含 `Underlying disease`
+- `待處理問題`：`problem_categories` 包含 `現在待處理問題`
+- `Nurse update list`：顯示 `name`, `problem`, `problem_categories`, `status`, `owner_role`, `updated_at`, `note`
 
 建議欄位選項：
 
 - `status`: `Active`, `Inactive`
+- `problem_categories`: JSON array，第一版選項為 `Underlying disease`, `現在待處理問題`
 - `owner_role`: `醫師`, `護理長`, `護理師`
 
 ## staff

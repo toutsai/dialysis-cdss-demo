@@ -46,6 +46,7 @@ def ensure_database(seed_dir: Path = DEFAULT_SEED_DIR, db_path: Path | str | Non
             for table in missing:
                 _import_seed_table(conn, table, seed_dir / SEED_TABLES[table], if_exists="replace")
             _ensure_ids(conn)
+        _ensure_problem_list_columns(conn)
         _ensure_clinical_event_columns(conn)
         _ensure_patient_columns(conn)
         _ensure_staff_columns(conn)
@@ -62,6 +63,7 @@ def sync_seed_csv(seed_dir: Path = DEFAULT_SEED_DIR, db_path: Path | str | None 
         for table, filename in SEED_TABLES.items():
             _import_seed_table(conn, table, seed_dir / filename, if_exists="replace")
         _ensure_ids(conn)
+        _ensure_problem_list_columns(conn)
         _ensure_clinical_event_columns(conn)
         _ensure_patient_columns(conn)
         _ensure_staff_columns(conn)
@@ -341,6 +343,23 @@ def _ensure_ids(conn: sqlite3.Connection) -> None:
         rows = conn.execute(f"select rowid from {table} where row_id is null or row_id = ''").fetchall()
         for row in rows:
             conn.execute(f"update {table} set row_id = ? where rowid = ?", (f"{table}-{row['rowid']}", row["rowid"]))
+
+
+def _ensure_problem_list_columns(conn: sqlite3.Connection) -> None:
+    if "problem_list" not in _table_names(conn):
+        return
+    cols = [row["name"] for row in conn.execute("pragma table_info(problem_list)")]
+    if "problem_categories" not in cols:
+        conn.execute(
+            "alter table problem_list add column problem_categories text default '[\"現在待處理問題\"]'"
+        )
+    conn.execute(
+        """
+        update problem_list
+        set problem_categories = '["現在待處理問題"]'
+        where problem_categories is null or trim(problem_categories) = ''
+        """
+    )
 
 
 def _ensure_clinical_event_columns(conn: sqlite3.Connection) -> None:

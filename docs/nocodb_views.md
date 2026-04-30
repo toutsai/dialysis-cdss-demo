@@ -93,6 +93,7 @@
 
 - `name`
 - `problem`
+- `problem_categories`
 - `status`
 - `owner_role`
 - `updated_by`
@@ -103,6 +104,7 @@
 
 - `status` is `active`
 - 或新版資料：`status` is `Active`
+- `problem_categories` 可依 `Underlying disease` 或 `現在待處理問題` 分開檢視
 
 排序：
 
@@ -113,6 +115,7 @@
 建議欄位選項：
 
 - `status`: `Active`, `Inactive`
+- `problem_categories`: JSON array，第一版選項為 `Underlying disease`, `現在待處理問題`
 - `owner_role`: `醫師`, `護理長`, `護理師`
 
 ## staff
