@@ -14,6 +14,7 @@ from src import db
 from src.domain.entities import LabResult, Medication
 from src.domain.dose_adjustment import build_dose_adjustments
 from src.domain.rules import Thresholds, evaluate_month
+from src.services.notify import notify_new_pending_problem
 from src.settings import load_dose_rules, save_dose_rules
 
 
@@ -774,7 +775,19 @@ def main() -> None:
 
 
 def _load_deployment_settings() -> None:
-    for key in ["DIALYSIS_CDSS_DEMO", "DIALYSIS_CDSS_DB_PATH", "DIALYSIS_CDSS_MASK_PATIENT_INFO"]:
+    for key in [
+        "DIALYSIS_CDSS_DEMO",
+        "DIALYSIS_CDSS_DB_PATH",
+        "DIALYSIS_CDSS_MASK_PATIENT_INFO",
+        "PROBLEM_NOTIFY_TO",
+        "SMTP_HOST",
+        "SMTP_PORT",
+        "SMTP_USERNAME",
+        "SMTP_PASSWORD",
+        "SMTP_FROM",
+        "EMAIL_TO",
+        "EMAIL_FROM",
+    ]:
         if os.getenv(key):
             continue
         try:
@@ -1618,6 +1631,7 @@ def _render_drug_settings(current_user: str, current_role: str) -> None:
 def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFrame, current_user: str, current_role: str) -> None:
     can_edit = _can_edit(current_role, "problem_list")
     problems = _prepare_problem_rows(problems)
+    _show_deferred_problem_notification()
     if can_edit:
         with st.form(f"problem-form-{chart_no}", clear_on_submit=True):
             problem_categories = st.multiselect(
@@ -1659,6 +1673,7 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
                 }])
                 saved = pd.concat([problems.fillna(""), new], ignore_index=True)
                 db.replace_patient_rows("problem_list", chart_no, saved)
+                _notify_pending_problem_if_needed(patient, problem_categories, current_user, now)
                 st.success("已新增主要問題")
                 st.rerun()
     else:
@@ -2558,6 +2573,37 @@ def _problem_categories_json(value: object) -> str:
 
 def _problem_categories_label(value: object) -> str:
     return "、".join(_parse_problem_categories(value))
+
+
+def _notify_pending_problem_if_needed(patient: pd.Series, categories: list[str], current_user: str, created_at: str) -> None:
+    if "現在待處理問題" not in categories:
+        return
+    patient_label = f"{_patient_display_name(patient.get('name'))}｜{_patient_display_chart_no(patient.get('chart_no'))}"
+    try:
+        result = notify_new_pending_problem(
+            patient_label=patient_label,
+            bed=_clean_text(patient.get("bed")),
+            created_by=current_user,
+            created_at=created_at,
+        )
+    except Exception as exc:
+        st.session_state["problem_notification"] = ("warning", f"已新增；email 通知寄送失敗：{exc}")
+        return
+    level = "success" if result.sent else "info"
+    st.session_state["problem_notification"] = (level, result.message)
+
+
+def _show_deferred_problem_notification() -> None:
+    payload = st.session_state.pop("problem_notification", None)
+    if not payload:
+        return
+    level, message = payload
+    if level == "success":
+        st.success(message)
+    elif level == "warning":
+        st.warning(message)
+    else:
+        st.info(message)
 
 
 def _safe_key(value: object) -> str:

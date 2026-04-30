@@ -49,6 +49,19 @@ DIALYSIS_CDSS_DB_PATH = "data/dialysis_cdss_demo.sqlite"
 
 第一次啟動時，app 會自動產生 demo SQLite。
 
+若要測試「新增現在待處理問題後 email 通知固定醫師」，可另外加入：
+
+```toml
+PROBLEM_NOTIFY_TO = "fixed-doctor@example.com"
+SMTP_HOST = "smtp.gmail.com"
+SMTP_PORT = "587"
+SMTP_USERNAME = "hospital-gmail@example.com"
+SMTP_PASSWORD = "gmail-app-password"
+SMTP_FROM = "hospital-gmail@example.com"
+```
+
+Gmail 通常需要使用「應用程式密碼」，不要把 Gmail 密碼或 app password commit 到 GitHub。正式使用前請確認院內資訊安全規範。
+
 ## Render 部署概念
 
 Render 或其他雲端主機也可以用同樣概念：

@@ -107,6 +107,8 @@ Demo 預設帳號：
 
 部署到 Streamlit Community Cloud 或 Render 的細節見 `docs/demo_deployment.md`。
 
+若要測試新增 `現在待處理問題` 後通知固定醫師，請在 Streamlit Secrets 設定 `PROBLEM_NOTIFY_TO` 與 SMTP 帳號資訊；Gmail 請使用 app password，不要把密碼寫入 repo。
+
 ## 規則設定
 
 前台側邊欄可切換到 `規則設定`，第一版支援調整：
