@@ -57,3 +57,11 @@ def test_problem_categories_can_filter_and_merge_without_dropping_rows():
     assert set(merged["row_id"]) == {"row-1", "row-2", "row-3"}
     assert merged.loc[merged["row_id"] == "row-1", "status"].iloc[0] == "Active"
     assert merged.loc[merged["row_id"] == "row-3", "status"].iloc[0] == "Inactive"
+
+
+def test_problem_owner_role_defaults_to_current_role():
+    options = ["醫師", "護理長", "護理師"]
+    assert app._default_problem_owner_role_index("醫師", options) == 0
+    assert app._default_problem_owner_role_index("護理長", options) == 1
+    assert app._default_problem_owner_role_index("護理師", options) == 2
+    assert app._default_problem_owner_role_index("管理員", options) == 2

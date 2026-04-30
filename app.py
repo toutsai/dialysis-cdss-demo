@@ -1628,7 +1628,12 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
             problem = st.text_area("主要問題", height=90)
             c1, c2 = st.columns([1, 1])
             status = c1.selectbox("狀態", ["Active", "Inactive"])
-            owner_role = c2.selectbox("負責角色", ["醫師", "護理長", "護理師"], index=2)
+            owner_role_options = ["醫師", "護理長", "護理師"]
+            owner_role = c2.selectbox(
+                "負責角色",
+                owner_role_options,
+                index=_default_problem_owner_role_index(current_role, owner_role_options),
+            )
             note = st.text_input("備註")
             submitted = st.form_submit_button("新增主要問題", type="primary")
 
@@ -2564,6 +2569,12 @@ def _normalize_problem_status(value: object) -> str:
     if text in {"inactive", "resolved", "archived", "false", "0"}:
         return "Inactive"
     return "Active"
+
+
+def _default_problem_owner_role_index(current_role: str, options: list[str]) -> int:
+    if current_role in options:
+        return options.index(current_role)
+    return options.index("護理師") if "護理師" in options else 0
 
 
 def _normalize_active_label(value: object) -> str:
