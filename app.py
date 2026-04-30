@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 from datetime import datetime
@@ -30,6 +31,7 @@ COLUMN_LABELS = {
     "drug_name": "藥名",
     "default_unit": "預設單位",
     "problem": "主要問題",
+    "problem_categories": "問題類別",
     "status": "狀態",
     "owner_role": "負責角色",
     "updated_by": "更新者",
@@ -63,6 +65,9 @@ COLUMN_LABELS = {
     "access_type": "血管通路類型",
     "vascular_access": "血管通路",
 }
+
+PROBLEM_CATEGORY_OPTIONS = ["Underlying disease", "現在待處理問題"]
+DEFAULT_PROBLEM_CATEGORIES = ["現在待處理問題"]
 
 
 st.set_page_config(
@@ -1612,8 +1617,14 @@ def _render_drug_settings(current_user: str, current_role: str) -> None:
 
 def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFrame, current_user: str, current_role: str) -> None:
     can_edit = _can_edit(current_role, "problem_list")
+    problems = _prepare_problem_rows(problems)
     if can_edit:
         with st.form(f"problem-form-{chart_no}", clear_on_submit=True):
+            problem_categories = st.multiselect(
+                "問題類別",
+                PROBLEM_CATEGORY_OPTIONS,
+                default=DEFAULT_PROBLEM_CATEGORIES,
+            )
             problem = st.text_area("主要問題", height=90)
             c1, c2 = st.columns([1, 1])
             status = c1.selectbox("狀態", ["Active", "Inactive"])
@@ -1624,6 +1635,8 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
         if submitted:
             if not problem.strip():
                 st.warning("請填寫主要問題。")
+            elif not problem_categories:
+                st.warning("請至少選擇一個問題類別。")
             else:
                 now = _now()
                 new = pd.DataFrame([{
@@ -1631,6 +1644,7 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
                     "deid": patient.get("deid", ""),
                     "name": patient.get("name", ""),
                     "problem": problem.strip(),
+                    "problem_categories": _problem_categories_json(problem_categories),
                     "status": status,
                     "owner_role": owner_role,
                     "updated_by": current_user or "unknown",
@@ -1645,20 +1659,22 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
     else:
         st.info("目前角色可查看主要問題，沒有編輯權限。")
 
-    if problems.empty:
-        st.info("目前沒有主要問題紀錄。")
-        return
-
-    st.markdown("#### 既有主要問題")
-    _editable_existing_records(
-        "problem_list",
-        chart_no,
-        problems,
-        ["problem", "status", "owner_role", "updated_by", "updated_at", "note"],
-        can_edit,
-        current_user,
-        key_suffix="problem",
-    )
+    for category in PROBLEM_CATEGORY_OPTIONS:
+        st.markdown(f"#### {category}")
+        category_rows = _filter_problem_rows(problems, category)
+        if category_rows.empty:
+            st.info(f"目前沒有 {category} 紀錄。")
+            continue
+        _editable_existing_records(
+            "problem_list",
+            chart_no,
+            category_rows,
+            ["problem", "status", "owner_role", "problem_categories", "updated_by", "updated_at", "note"],
+            can_edit,
+            current_user,
+            key_suffix=f"problem-{_safe_key(category)}",
+            all_rows=problems,
+        )
 
 
 def _render_clinical_events(chart_no: str, patient: pd.Series, events: pd.DataFrame, current_user: str, current_role: str) -> None:
@@ -1964,6 +1980,7 @@ def _editable_existing_records(
     can_edit: bool,
     current_user: str,
     key_suffix: str,
+    all_rows: pd.DataFrame | None = None,
 ) -> None:
     data = df.copy().fillna("")
     for col in visible_columns:
@@ -1973,6 +1990,8 @@ def _editable_existing_records(
     date_columns = [col for col in ("event_date", "target_date") if col in visible_columns]
     for col in date_columns:
         data[col] = pd.to_datetime(data[col], errors="coerce").dt.date
+    if table == "problem_list" and "problem_categories" in visible_columns:
+        data["problem_categories"] = data["problem_categories"].map(_parse_problem_categories)
 
     column_config = _existing_record_column_config(table, visible_columns)
     disabled_columns = [
@@ -1983,6 +2002,8 @@ def _editable_existing_records(
 
     if not can_edit:
         display = data[visible_columns].copy()
+        if table == "problem_list" and "problem_categories" in display.columns:
+            display["problem_categories"] = display["problem_categories"].map(_problem_categories_label)
         display.columns = [COLUMN_LABELS.get(col, col) for col in visible_columns]
         st.dataframe(display, use_container_width=True, hide_index=True)
         return
@@ -2007,6 +2028,9 @@ def _editable_existing_records(
                 saved[col] = saved[col].map(_format_date_value)
         if table == "problem_list" and "status" in edited_for_save.columns:
             edited_for_save["status"] = edited_for_save["status"].map(_normalize_problem_status)
+        if table == "problem_list" and "problem_categories" in edited_for_save.columns:
+            saved["problem_categories"] = saved["problem_categories"].map(_problem_categories_json)
+            edited_for_save["problem_categories"] = edited_for_save["problem_categories"].map(_problem_categories_json)
 
         before = saved[editable_columns].fillna("").astype(str) if editable_columns else pd.DataFrame()
         after = edited_for_save[editable_columns].fillna("").astype(str) if editable_columns else pd.DataFrame()
@@ -2021,7 +2045,8 @@ def _editable_existing_records(
             if "updated_at" in saved.columns:
                 saved.loc[changed, "updated_at"] = now
 
-        db.replace_patient_rows(table, chart_no, saved)
+        rows_to_save = _merge_problem_rows(all_rows, saved) if table == "problem_list" and all_rows is not None else saved
+        db.replace_patient_rows(table, chart_no, rows_to_save)
         st.success("已儲存紀錄變更")
         st.rerun()
 
@@ -2034,6 +2059,13 @@ def _existing_record_column_config(table: str, visible_columns: list[str]) -> di
     if table == "problem_list":
         if "problem" in visible_columns:
             column_config["problem"] = st.column_config.TextColumn("主要問題", width="large")
+        if "problem_categories" in visible_columns:
+            column_config["problem_categories"] = st.column_config.MultiselectColumn(
+                "問題類別",
+                options=PROBLEM_CATEGORY_OPTIONS,
+                required=True,
+                width="medium",
+            )
         if "status" in visible_columns:
             column_config["status"] = st.column_config.SelectboxColumn(
                 "狀態",
@@ -2454,6 +2486,77 @@ def _staff_display_frame(staff: pd.DataFrame) -> pd.DataFrame:
     view = view[display_columns].copy()
     view.columns = ["人員 ID", "姓名", "角色", "帳號", "狀態", "新增者", "新增時間", "停用時間", "備註"]
     return view
+
+
+def _prepare_problem_rows(problems: pd.DataFrame) -> pd.DataFrame:
+    rows = problems.copy().fillna("")
+    if "problem_categories" not in rows.columns:
+        rows["problem_categories"] = _problem_categories_json(DEFAULT_PROBLEM_CATEGORIES)
+    rows["problem_categories"] = rows["problem_categories"].map(_problem_categories_json)
+    if "row_id" not in rows.columns:
+        rows["row_id"] = [f"problem_list-row-{i}" for i in range(len(rows))]
+    return rows
+
+
+def _filter_problem_rows(problems: pd.DataFrame, category: str) -> pd.DataFrame:
+    if problems.empty or "problem_categories" not in problems.columns:
+        return problems.iloc[0:0].copy()
+    mask = problems["problem_categories"].map(lambda value: category in _parse_problem_categories(value))
+    return problems[mask].copy()
+
+
+def _merge_problem_rows(all_rows: pd.DataFrame, edited_rows: pd.DataFrame) -> pd.DataFrame:
+    base = _prepare_problem_rows(all_rows)
+    edited = _prepare_problem_rows(edited_rows)
+    if "row_id" not in base.columns or "row_id" not in edited.columns:
+        return edited
+    for _, row in edited.iterrows():
+        row_id = str(row.get("row_id", "")).strip()
+        if not row_id:
+            continue
+        match = base["row_id"].astype(str) == row_id
+        if match.any():
+            for col in edited.columns:
+                if col not in base.columns:
+                    base[col] = ""
+                base.loc[match, col] = row.get(col, "")
+        else:
+            base = pd.concat([base, pd.DataFrame([row])], ignore_index=True)
+    return base
+
+
+def _parse_problem_categories(value: object) -> list[str]:
+    if isinstance(value, (list, tuple, set)):
+        raw_items = [str(item).strip() for item in value]
+    else:
+        text = _clean_text(value)
+        if not text:
+            raw_items = []
+        else:
+            try:
+                parsed = json.loads(text)
+                if isinstance(parsed, list):
+                    raw_items = [str(item).strip() for item in parsed]
+                else:
+                    raw_items = [text]
+            except json.JSONDecodeError:
+                raw_items = [item.strip() for item in re.split(r"[,，、|/]+", text)]
+    categories = [item for item in raw_items if item in PROBLEM_CATEGORY_OPTIONS]
+    if not categories:
+        categories = DEFAULT_PROBLEM_CATEGORIES.copy()
+    return list(dict.fromkeys(categories))
+
+
+def _problem_categories_json(value: object) -> str:
+    return json.dumps(_parse_problem_categories(value), ensure_ascii=False)
+
+
+def _problem_categories_label(value: object) -> str:
+    return "、".join(_parse_problem_categories(value))
+
+
+def _safe_key(value: object) -> str:
+    return re.sub(r"[^0-9A-Za-z_-]+", "-", _clean_text(value)).strip("-") or "key"
 
 
 def _normalize_problem_status(value: object) -> str:

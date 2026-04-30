@@ -34,8 +34,12 @@ def test_sync_seed_csv_creates_tables(tmp_path: Path):
     db.sync_seed_csv(seed_dir=seed, db_path=db_path)
     with db.connect(db_path) as conn:
         names = db._table_names(conn)
+        problem_cols = {row["name"] for row in conn.execute("pragma table_info(problem_list)")}
+        problem_category = conn.execute("select problem_categories from problem_list limit 1").fetchone()
     assert "patients" in names
     assert "problem_list" in names
+    assert "problem_categories" in problem_cols
+    assert problem_category["problem_categories"] == '["現在待處理問題"]'
 
 
 def test_staff_replace_keeps_table(tmp_path: Path):

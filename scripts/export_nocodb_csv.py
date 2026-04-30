@@ -108,6 +108,7 @@ def _problem_list_rows(patients: list[Patient], exported_at: str) -> list[dict[s
             "deid": stable_deid(p.chart_no),
             "name": p.name,
             "problem": "",
+            "problem_categories": '["現在待處理問題"]',
             "status": "Active",
             "owner_role": "護理師",
             "updated_by": "",

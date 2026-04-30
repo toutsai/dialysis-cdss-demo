@@ -96,6 +96,7 @@ def _build_demo_tables(now: str, today: date) -> dict[str, pd.DataFrame]:
                 "deid": deid,
                 "name": name,
                 "problem": "血磷控制待加強，需追蹤飲食與降磷藥服藥狀況",
+                "problem_categories": '["現在待處理問題"]',
                 "status": "Active",
                 "priority": "",
                 "owner_role": "護理師",
