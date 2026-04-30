@@ -298,9 +298,11 @@ def replace_patient_rows(table: str, chart_no: str, rows: pd.DataFrame) -> None:
     if table not in {"problem_list", "clinical_events", "handoffs", "dialysis_orders", "recommendations"}:
         raise ValueError(f"Unsupported editable table: {table}")
     with connect() as conn:
+        _ensure_editable_table_columns(conn, table)
         conn.execute(f"delete from {table} where chart_no = ?", (chart_no,))
         if not rows.empty:
             rows = rows.fillna("")
+            rows = _align_rows_to_table(conn, table, rows)
             rows.to_sql(table, conn, if_exists="append", index=False)
 
 
@@ -337,12 +339,18 @@ def _import_seed_table(conn: sqlite3.Connection, table: str, path: Path, if_exis
 
 def _ensure_ids(conn: sqlite3.Connection) -> None:
     for table in ("problem_list", "clinical_events", "dialysis_orders"):
-        cols = [row["name"] for row in conn.execute(f"pragma table_info({table})")]
-        if "row_id" not in cols:
-            conn.execute(f"alter table {table} add column row_id text")
-        rows = conn.execute(f"select rowid from {table} where row_id is null or row_id = ''").fetchall()
-        for row in rows:
-            conn.execute(f"update {table} set row_id = ? where rowid = ?", (f"{table}-{row['rowid']}", row["rowid"]))
+        _ensure_row_id_column(conn, table)
+
+
+def _ensure_row_id_column(conn: sqlite3.Connection, table: str) -> None:
+    if table not in _table_names(conn):
+        return
+    cols = [row["name"] for row in conn.execute(f"pragma table_info({table})")]
+    if "row_id" not in cols:
+        conn.execute(f"alter table {table} add column row_id text")
+    rows = conn.execute(f"select rowid from {table} where row_id is null or row_id = ''").fetchall()
+    for row in rows:
+        conn.execute(f"update {table} set row_id = ? where rowid = ?", (f"{table}-{row['rowid']}", row["rowid"]))
 
 
 def _ensure_problem_list_columns(conn: sqlite3.Connection) -> None:
@@ -360,6 +368,26 @@ def _ensure_problem_list_columns(conn: sqlite3.Connection) -> None:
         where problem_categories is null or trim(problem_categories) = ''
         """
     )
+
+
+def _ensure_editable_table_columns(conn: sqlite3.Connection, table: str) -> None:
+    if table == "problem_list":
+        _ensure_row_id_column(conn, table)
+        _ensure_problem_list_columns(conn)
+    elif table == "clinical_events":
+        _ensure_clinical_event_columns(conn)
+    elif table == "handoffs":
+        _ensure_handoffs_table(conn)
+    elif table == "dialysis_orders":
+        _ensure_dialysis_order_columns(conn)
+
+
+def _align_rows_to_table(conn: sqlite3.Connection, table: str, rows: pd.DataFrame) -> pd.DataFrame:
+    table_columns = [row["name"] for row in conn.execute(f"pragma table_info({table})")]
+    for col in table_columns:
+        if col not in rows.columns:
+            rows[col] = ""
+    return rows[table_columns]
 
 
 def _ensure_clinical_event_columns(conn: sqlite3.Connection) -> None:
