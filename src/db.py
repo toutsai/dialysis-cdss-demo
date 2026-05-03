@@ -307,7 +307,7 @@ def replace_patient_registry(rows: pd.DataFrame) -> None:
 
 
 def replace_patient_rows(table: str, chart_no: str, rows: pd.DataFrame) -> None:
-    if table not in {"problem_list", "clinical_events", "handoffs", "dialysis_orders", "recommendations"}:
+    if table not in {"problem_list", "clinical_events", "handoffs", "dialysis_orders", "medications", "recommendations"}:
         raise ValueError(f"Unsupported editable table: {table}")
     with connect() as conn:
         _ensure_editable_table_columns(conn, table)
@@ -392,6 +392,8 @@ def _ensure_editable_table_columns(conn: sqlite3.Connection, table: str) -> None
         _ensure_handoffs_table(conn)
     elif table == "dialysis_orders":
         _ensure_dialysis_order_columns(conn)
+    elif table == "medications":
+        _ensure_medication_columns(conn)
 
 
 def _align_rows_to_table(conn: sqlite3.Connection, table: str, rows: pd.DataFrame) -> pd.DataFrame:
@@ -586,7 +588,16 @@ def _ensure_medication_columns(conn: sqlite3.Connection) -> None:
             dose text,
             frequency text,
             drug_class text,
-            source text
+            source text,
+            source_record_id text,
+            start_date text,
+            end_date text,
+            status text,
+            synced_at text,
+            updated_by text,
+            updated_at text,
+            note text,
+            row_id text
         )
         """
     )
@@ -607,10 +618,15 @@ def _ensure_medication_columns(conn: sqlite3.Connection) -> None:
         "end_date": "",
         "status": "",
         "synced_at": "",
+        "updated_by": "",
+        "updated_at": "",
+        "note": "",
+        "row_id": "",
     }
     for col, default in defaults.items():
         if col not in cols:
             conn.execute(f"alter table medications add column {col} text default '{default}'")
+    _ensure_row_id_column(conn, "medications")
 
 
 def _ensure_dialysis_order_columns(conn: sqlite3.Connection) -> None:
