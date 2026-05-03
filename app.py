@@ -1691,23 +1691,24 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
     problems = _prepare_problem_rows(problems)
     _show_deferred_problem_notification()
     if can_edit:
-        with st.form(f"problem-form-{chart_no}", clear_on_submit=True):
-            problem_categories = st.multiselect(
-                "問題類別",
-                PROBLEM_CATEGORY_OPTIONS,
-                default=DEFAULT_PROBLEM_CATEGORIES,
-            )
-            problem = st.text_area("主要問題", height=90)
-            c1, c2 = st.columns([1, 1])
-            status = c1.selectbox("狀態", ["Active", "Inactive"])
-            owner_role_options = ["醫師", "護理長", "護理師"]
-            owner_role = c2.selectbox(
-                "負責角色",
-                owner_role_options,
-                index=_default_problem_owner_role_index(current_role, owner_role_options),
-            )
-            note = st.text_input("備註")
-            submitted = st.form_submit_button("新增主要問題", type="primary")
+        with st.expander("新增主要問題", expanded=False):
+            with st.form(f"problem-form-{chart_no}", clear_on_submit=True):
+                problem_categories = st.multiselect(
+                    "問題類別",
+                    PROBLEM_CATEGORY_OPTIONS,
+                    default=DEFAULT_PROBLEM_CATEGORIES,
+                )
+                problem = st.text_area("主要問題", height=90)
+                c1, c2 = st.columns([1, 1])
+                status = c1.selectbox("狀態", ["Active", "Inactive"])
+                owner_role_options = ["醫師", "護理長", "護理師"]
+                owner_role = c2.selectbox(
+                    "負責角色",
+                    owner_role_options,
+                    index=_default_problem_owner_role_index(current_role, owner_role_options),
+                )
+                note = st.text_input("備註")
+                submitted = st.form_submit_button("新增主要問題", type="primary")
 
         if submitted:
             if not problem.strip():
@@ -1766,13 +1767,14 @@ def _render_clinical_events(chart_no: str, patient: pd.Series, events: pd.DataFr
         "其他",
     ]
     if can_edit:
-        with st.form(f"event-form-{chart_no}", clear_on_submit=True):
-            c1, c2, c3 = st.columns([1, 1, 2])
-            event_date = c1.date_input("事件日期", value=datetime.now().date())
-            event_type = c2.selectbox("事件類型", ["急診", "住院", "門診"])
-            title = c3.selectbox("事件標題", event_titles)
-            event_content = st.text_area("事件內容", height=110)
-            submitted = st.form_submit_button("新增近期事件", type="primary")
+        with st.expander("新增近期事件", expanded=False):
+            with st.form(f"event-form-{chart_no}", clear_on_submit=True):
+                c1, c2, c3 = st.columns([1, 1, 2])
+                event_date = c1.date_input("事件日期", value=datetime.now().date())
+                event_type = c2.selectbox("事件類型", ["急診", "住院", "門診"])
+                title = c3.selectbox("事件標題", event_titles)
+                event_content = st.text_area("事件內容", height=110)
+                submitted = st.form_submit_button("新增近期事件", type="primary")
 
         if submitted:
             now = _now()
@@ -1816,15 +1818,16 @@ def _render_clinical_events(chart_no: str, patient: pd.Series, events: pd.DataFr
 def _render_handoffs(chart_no: str, patient: pd.Series, handoffs: pd.DataFrame, current_user: str, current_role: str) -> None:
     can_edit = _can_edit(current_role, "handoffs")
     if can_edit:
-        st.caption("新增交班後，目標日期到期且狀態未完成時，會出現在左側今日提醒。")
-        with st.form(f"handoff-form-{chart_no}", clear_on_submit=True):
-            c1, c2, c3 = st.columns([1, 1, 1])
-            target_date = c1.date_input("目標日期", value=datetime.now().date())
-            handoff_type = c2.selectbox("交班類型", ["共同交班", "醫師交班", "護理交班"])
-            priority = c3.selectbox("優先度", ["一般", "重要", "緊急"])
-            title = st.text_input("事件標題")
-            content = st.text_area("交班內容", height=110)
-            submitted = st.form_submit_button("新增交班", type="primary")
+        with st.expander("新增醫護交班", expanded=False):
+            st.caption("新增交班後，目標日期到期且狀態未完成時，會出現在左側今日提醒。")
+            with st.form(f"handoff-form-{chart_no}", clear_on_submit=True):
+                c1, c2, c3 = st.columns([1, 1, 1])
+                target_date = c1.date_input("目標日期", value=datetime.now().date())
+                handoff_type = c2.selectbox("交班類型", ["共同交班", "醫師交班", "護理交班"])
+                priority = c3.selectbox("優先度", ["一般", "重要", "緊急"])
+                title = st.text_input("事件標題")
+                content = st.text_area("交班內容", height=110)
+                submitted = st.form_submit_button("新增交班", type="primary")
 
         if submitted:
             if not title.strip() and not content.strip():
@@ -1943,43 +1946,44 @@ def _render_dialysis_orders(
     current_order = orders.iloc[0] if not orders.empty else pd.Series(dtype=object)
     draft = st.session_state.pop(f"dialysis-order-draft-{chart_no}", {})
     if can_edit:
-        with st.form(f"dialysis-order-form-{chart_no}", clear_on_submit=True):
-            c1, c2 = st.columns([1, 2])
-            effective_date = c1.date_input("生效日期", value=datetime.now().date())
-            default_days = _frequency_to_days(draft.get("frequency") or current_order.get("frequency") or current_schedule.get("frequency", ""))
-            dialysis_days = c2.segmented_control(
-                "透析日",
-                ["一", "二", "三", "四", "五", "六"],
-                selection_mode="multi",
-                default=default_days,
-                width="stretch",
-            )
-            frequency = _days_to_frequency(dialysis_days)
-            st.caption(f"系統解讀頻率：{frequency or '未選擇'}")
+        with st.expander("新增 / 調整透析醫囑", expanded=bool(draft)):
+            with st.form(f"dialysis-order-form-{chart_no}", clear_on_submit=True):
+                c1, c2 = st.columns([1, 2])
+                effective_date = c1.date_input("生效日期", value=datetime.now().date())
+                default_days = _frequency_to_days(draft.get("frequency") or current_order.get("frequency") or current_schedule.get("frequency", ""))
+                dialysis_days = c2.segmented_control(
+                    "透析日",
+                    ["一", "二", "三", "四", "五", "六"],
+                    selection_mode="multi",
+                    default=default_days,
+                    width="stretch",
+                )
+                frequency = _days_to_frequency(dialysis_days)
+                st.caption(f"系統解讀頻率：{frequency or '未選擇'}")
 
-            c1, c2, c3, c4 = st.columns(4)
-            shift_options = ["早班", "午班", "晚班"]
-            current_shift = str(draft.get("shift") or current_order.get("shift") or current_schedule.get("shift", "")).strip()
-            shift_index = shift_options.index(current_shift) if current_shift in shift_options else 1
-            shift = c1.radio("班別", shift_options, index=shift_index, horizontal=True)
-            bed = c2.text_input("床位", value=str(draft.get("bed") or current_order.get("bed") or current_schedule.get("bed", "")).strip())
-            dialyzer = c3.text_input("AK", value=str(draft.get("dialyzer") or current_order.get("dialyzer") or current_schedule.get("dialyzer", "")).strip())
-            dialysate_ca = c4.text_input("藥水 Ca", value=str(draft.get("dialysate_ca") or current_order.get("dialysate_ca") or current_schedule.get("dialysate_ca", "")).strip())
+                c1, c2, c3, c4 = st.columns(4)
+                shift_options = ["早班", "午班", "晚班"]
+                current_shift = str(draft.get("shift") or current_order.get("shift") or current_schedule.get("shift", "")).strip()
+                shift_index = shift_options.index(current_shift) if current_shift in shift_options else 1
+                shift = c1.radio("班別", shift_options, index=shift_index, horizontal=True)
+                bed = c2.text_input("床位", value=str(draft.get("bed") or current_order.get("bed") or current_schedule.get("bed", "")).strip())
+                dialyzer = c3.text_input("AK", value=str(draft.get("dialyzer") or current_order.get("dialyzer") or current_schedule.get("dialyzer", "")).strip())
+                dialysate_ca = c4.text_input("藥水 Ca", value=str(draft.get("dialysate_ca") or current_order.get("dialysate_ca") or current_schedule.get("dialysate_ca", "")).strip())
 
-            c1, c2, c3 = st.columns(3)
-            blood_flow = c1.text_input("Blood flow", value=str(draft.get("blood_flow") or current_order.get("blood_flow", "")).strip())
-            dialysate_flow = c2.text_input("Dialysate flow", value=str(draft.get("dialysate_flow") or current_order.get("dialysate_flow", "")).strip())
-            dry_weight = c3.text_input("Dry weight", value=str(draft.get("dry_weight") or current_order.get("dry_weight", "")).strip())
+                c1, c2, c3 = st.columns(3)
+                blood_flow = c1.text_input("Blood flow", value=str(draft.get("blood_flow") or current_order.get("blood_flow", "")).strip())
+                dialysate_flow = c2.text_input("Dialysate flow", value=str(draft.get("dialysate_flow") or current_order.get("dialysate_flow", "")).strip())
+                dry_weight = c3.text_input("Dry weight", value=str(draft.get("dry_weight") or current_order.get("dry_weight", "")).strip())
 
-            c1, c2 = st.columns(2)
-            anticoagulant_loading = c1.text_input("抗凝 Loading", value=str(draft.get("anticoagulant_loading") or current_order.get("anticoagulant_loading", "")).strip())
-            anticoagulant_maintain = c2.text_input("抗凝 Maintain", value=str(draft.get("anticoagulant_maintain") or current_order.get("anticoagulant_maintain", "")).strip())
+                c1, c2 = st.columns(2)
+                anticoagulant_loading = c1.text_input("抗凝 Loading", value=str(draft.get("anticoagulant_loading") or current_order.get("anticoagulant_loading", "")).strip())
+                anticoagulant_maintain = c2.text_input("抗凝 Maintain", value=str(draft.get("anticoagulant_maintain") or current_order.get("anticoagulant_maintain", "")).strip())
 
-            c1, c2 = st.columns(2)
-            access_side = c1.radio("血管通路側別", ["左", "右"], horizontal=True)
-            access_type = c2.radio("血管通路類型", ["FVC", "PERM", "AVF", "AVG"], horizontal=True)
-            note = st.text_input("備註", value=str(draft.get("note", "")).strip())
-            submitted = st.form_submit_button("新增透析醫囑", type="primary")
+                c1, c2 = st.columns(2)
+                access_side = c1.radio("血管通路側別", ["左", "右"], horizontal=True)
+                access_type = c2.radio("血管通路類型", ["FVC", "PERM", "AVF", "AVG"], horizontal=True)
+                note = st.text_input("備註", value=str(draft.get("note", "")).strip())
+                submitted = st.form_submit_button("新增透析醫囑", type="primary")
 
         if submitted:
             if not dialysis_days:
@@ -2069,7 +2073,6 @@ def _render_dialysis_medications(
     matrix_selection = _selected_medication_from_matrix_state(matrix_key, matrix, medications)
 
     if can_edit:
-        st.markdown("#### 新增 / 調整洗腎藥物")
         if draft:
             _seed_widget_state(base_key, {
                 "dose": draft.get("dose", ""),
@@ -2083,103 +2086,104 @@ def _render_dialysis_medications(
 
         active_adjust_key = str(st.session_state.get(f"{base_key}-active-adjust-key", ""))
         is_adjusting = bool(active_adjust_key)
-        if is_adjusting:
-            st.info("已帶入既有洗腎藥物；儲存後會新增一筆調整紀錄，不會覆蓋舊資料。")
+        with st.expander("新增 / 調整洗腎藥物", expanded=is_adjusting or bool(draft)):
+            if is_adjusting:
+                st.info("已帶入既有洗腎藥物；儲存後會新增一筆調整紀錄，不會覆蓋舊資料。")
 
-        c1, c2, c3 = st.columns([1, 1, 2])
-        start_date_key = f"{base_key}-start_date"
-        st.session_state.setdefault(start_date_key, datetime.now().date())
-        start_date = c1.date_input("調整 / 新增日期", key=start_date_key)
-        drug_type_options = _hospital_drug_type_options(hospital_drugs)
-        draft_class = str(draft.get("drug_class") or "ESA")
-        draft_type = _med_class_to_hospital_drug_type(draft_class)
-        type_key = f"{base_key}-drug_type"
-        if st.session_state.get(type_key) not in drug_type_options:
-            st.session_state[type_key] = draft_type if draft_type in drug_type_options else drug_type_options[0]
-        drug_type = c2.selectbox("類別", drug_type_options, key=type_key)
+            c1, c2, c3 = st.columns([1, 1, 2])
+            start_date_key = f"{base_key}-start_date"
+            st.session_state.setdefault(start_date_key, datetime.now().date())
+            start_date = c1.date_input("調整 / 新增日期", key=start_date_key)
+            drug_type_options = _hospital_drug_type_options(hospital_drugs)
+            draft_class = str(draft.get("drug_class") or "ESA")
+            draft_type = _med_class_to_hospital_drug_type(draft_class)
+            type_key = f"{base_key}-drug_type"
+            if st.session_state.get(type_key) not in drug_type_options:
+                st.session_state[type_key] = draft_type if draft_type in drug_type_options else drug_type_options[0]
+            drug_type = c2.selectbox("類別", drug_type_options, key=type_key)
 
-        filtered_drugs = _filter_hospital_drugs_by_type(hospital_drugs, drug_type)
-        draft_name = draft.get("drug_name", "") if drug_type == draft_type else ""
-        drug_options = _hospital_drug_name_options(filtered_drugs, draft_name)
-        drug_name_key = f"{base_key}-drug_name-{drug_type}"
-        if draft_name and draft_name in drug_options:
-            st.session_state[drug_name_key] = draft_name
-        if st.session_state.get(drug_name_key) not in drug_options:
-            st.session_state[drug_name_key] = drug_options[0]
-        drug_name = c3.selectbox("品項", drug_options, key=drug_name_key)
+            filtered_drugs = _filter_hospital_drugs_by_type(hospital_drugs, drug_type)
+            draft_name = draft.get("drug_name", "") if drug_type == draft_type else ""
+            drug_options = _hospital_drug_name_options(filtered_drugs, draft_name)
+            drug_name_key = f"{base_key}-drug_name-{drug_type}"
+            if draft_name and draft_name in drug_options:
+                st.session_state[drug_name_key] = draft_name
+            if st.session_state.get(drug_name_key) not in drug_options:
+                st.session_state[drug_name_key] = drug_options[0]
+            drug_name = c3.selectbox("品項", drug_options, key=drug_name_key)
 
-        selected_drug = _selected_hospital_drug(filtered_drugs, drug_name)
-        drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
-        unit_options = _hospital_drug_unit_options(filtered_drugs, selected_drug, draft.get("unit", ""))
+            selected_drug = _selected_hospital_drug(filtered_drugs, drug_name)
+            drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
+            unit_options = _hospital_drug_unit_options(filtered_drugs, selected_drug, draft.get("unit", ""))
 
-        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-        dose_key = f"{base_key}-dose"
-        st.session_state.setdefault(dose_key, str(draft.get("dose", "")))
-        dose = c1.text_input("劑量", key=dose_key)
-        unit_key = f"{base_key}-unit-{drug_type}-{drug_name}"
-        if draft.get("unit") and str(draft.get("unit")) in unit_options:
-            st.session_state[unit_key] = str(draft.get("unit"))
-        if st.session_state.get(unit_key) not in unit_options:
-            st.session_state[unit_key] = unit_options[0]
-        unit = c2.selectbox("單位", unit_options, key=unit_key, format_func=lambda value: value or "未設定")
-        frequency_key = f"{base_key}-frequency"
-        st.session_state.setdefault(frequency_key, str(draft.get("frequency", "")))
-        frequency = c3.text_input("頻率", key=frequency_key)
-        status = c4.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0, key=f"{base_key}-status")
+            c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
+            dose_key = f"{base_key}-dose"
+            st.session_state.setdefault(dose_key, str(draft.get("dose", "")))
+            dose = c1.text_input("劑量", key=dose_key)
+            unit_key = f"{base_key}-unit-{drug_type}-{drug_name}"
+            if draft.get("unit") and str(draft.get("unit")) in unit_options:
+                st.session_state[unit_key] = str(draft.get("unit"))
+            if st.session_state.get(unit_key) not in unit_options:
+                st.session_state[unit_key] = unit_options[0]
+            unit = c2.selectbox("單位", unit_options, key=unit_key, format_func=lambda value: value or "未設定")
+            frequency_key = f"{base_key}-frequency"
+            st.session_state.setdefault(frequency_key, str(draft.get("frequency", "")))
+            frequency = c3.text_input("頻率", key=frequency_key)
+            status = c4.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0, key=f"{base_key}-status")
 
-        c1, c2 = st.columns([1, 2])
-        order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
-        order_code_key = f"{base_key}-order_code-{drug_type}-{drug_name}"
-        st.session_state.setdefault(order_code_key, order_code_default)
-        order_code = c1.text_input("醫囑/藥品碼", key=order_code_key)
-        note_key = f"{base_key}-note"
-        st.session_state.setdefault(note_key, str(draft.get("note", "")))
-        note = c2.text_input("備註", key=note_key)
-        submitted = st.button(
-            "儲存藥物調整" if is_adjusting else "新增洗腎藥物",
-            type="primary",
-            key=f"{base_key}-submit",
-        )
-        if is_adjusting and st.button("取消調整，改新增", key=f"{base_key}-cancel-adjust"):
-            _clear_medication_adjustment_state(base_key)
-            st.session_state[f"{base_key}-ignore-selection-key"] = active_adjust_key
-            st.rerun()
-
-        if submitted:
-            if not drug_name.strip():
-                st.warning("請至少選擇藥名。")
-            else:
-                now = _now()
-                year_month = _year_month_from_date(start_date)
-                new = pd.DataFrame([{
-                    "chart_no": chart_no,
-                    "deid": patient.get("deid", ""),
-                    "name": patient.get("name", ""),
-                    "year_month": year_month,
-                    "order_code": order_code.strip(),
-                    "drug_name": drug_name.strip(),
-                    "dose": dose.strip(),
-                    "unit": str(unit).strip(),
-                    "frequency": frequency.strip(),
-                    "drug_class": drug_class,
-                    "source": "manual",
-                    "source_record_id": "",
-                    "start_date": start_date.isoformat(),
-                    "end_date": "",
-                    "status": status,
-                    "synced_at": "",
-                    "note": note.strip(),
-                    "updated_by": current_user or "unknown",
-                    "updated_at": now,
-                    "row_id": f"medications-{chart_no}-{now.replace(':', '').replace('-', '')}",
-                }])
-                saved = pd.concat([medications.fillna(""), new], ignore_index=True)
-                db.replace_patient_rows("medications", chart_no, saved)
-                if is_adjusting:
-                    st.session_state[f"{base_key}-ignore-selection-key"] = active_adjust_key
+            c1, c2 = st.columns([1, 2])
+            order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
+            order_code_key = f"{base_key}-order_code-{drug_type}-{drug_name}"
+            st.session_state.setdefault(order_code_key, order_code_default)
+            order_code = c1.text_input("醫囑/藥品碼", key=order_code_key)
+            note_key = f"{base_key}-note"
+            st.session_state.setdefault(note_key, str(draft.get("note", "")))
+            note = c2.text_input("備註", key=note_key)
+            submitted = st.button(
+                "儲存藥物調整" if is_adjusting else "新增洗腎藥物",
+                type="primary",
+                key=f"{base_key}-submit",
+            )
+            if is_adjusting and st.button("取消調整，改新增", key=f"{base_key}-cancel-adjust"):
                 _clear_medication_adjustment_state(base_key)
-                st.success("已儲存藥物調整" if is_adjusting else "已新增洗腎藥物")
+                st.session_state[f"{base_key}-ignore-selection-key"] = active_adjust_key
                 st.rerun()
+
+            if submitted:
+                if not drug_name.strip():
+                    st.warning("請至少選擇藥名。")
+                else:
+                    now = _now()
+                    year_month = _year_month_from_date(start_date)
+                    new = pd.DataFrame([{
+                        "chart_no": chart_no,
+                        "deid": patient.get("deid", ""),
+                        "name": patient.get("name", ""),
+                        "year_month": year_month,
+                        "order_code": order_code.strip(),
+                        "drug_name": drug_name.strip(),
+                        "dose": dose.strip(),
+                        "unit": str(unit).strip(),
+                        "frequency": frequency.strip(),
+                        "drug_class": drug_class,
+                        "source": "manual",
+                        "source_record_id": "",
+                        "start_date": start_date.isoformat(),
+                        "end_date": "",
+                        "status": status,
+                        "synced_at": "",
+                        "note": note.strip(),
+                        "updated_by": current_user or "unknown",
+                        "updated_at": now,
+                        "row_id": f"medications-{chart_no}-{now.replace(':', '').replace('-', '')}",
+                    }])
+                    saved = pd.concat([medications.fillna(""), new], ignore_index=True)
+                    db.replace_patient_rows("medications", chart_no, saved)
+                    if is_adjusting:
+                        st.session_state[f"{base_key}-ignore-selection-key"] = active_adjust_key
+                    _clear_medication_adjustment_state(base_key)
+                    st.success("已儲存藥物調整" if is_adjusting else "已新增洗腎藥物")
+                    st.rerun()
     else:
         st.info("目前角色可查看洗腎藥物，沒有編輯權限。")
 
