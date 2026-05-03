@@ -32,6 +32,7 @@ COLUMN_LABELS = {
     "drug_name": "藥名",
     "drug_class": "藥物類別",
     "dose": "劑量",
+    "unit": "單位",
     "order_code": "醫囑/藥品碼",
     "default_unit": "預設單位",
     "year_month": "月份",
@@ -2054,13 +2055,14 @@ def _render_dialysis_medications(
             drug_name = c3.selectbox("品項", drug_options, index=0)
             selected_drug = _selected_hospital_drug(filtered_drugs, drug_name)
             drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
-            default_unit = str(selected_drug.get("default_unit", "")).strip() if not selected_drug.empty else ""
+            unit_options = _hospital_drug_unit_options(filtered_drugs, selected_drug, draft.get("unit", ""))
 
-            c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-            dose = c1.text_input("劑量", value=str(draft.get("dose", "")), placeholder=default_unit or "")
-            frequency = c2.text_input("頻率", value=str(draft.get("frequency", "")))
-            start_date = c3.date_input("開始日期", value=datetime.now().date())
-            status = c4.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0)
+            c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
+            dose = c1.text_input("劑量", value=str(draft.get("dose", "")))
+            unit = c2.selectbox("單位", unit_options, index=0, format_func=lambda value: value or "未設定")
+            frequency = c3.text_input("頻率", value=str(draft.get("frequency", "")))
+            start_date = c4.date_input("開始日期", value=datetime.now().date())
+            status = c5.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0)
 
             c1, c2 = st.columns([1, 2])
             order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
@@ -2081,6 +2083,7 @@ def _render_dialysis_medications(
                     "order_code": order_code.strip(),
                     "drug_name": drug_name.strip(),
                     "dose": dose.strip(),
+                    "unit": str(unit).strip(),
                     "frequency": frequency.strip(),
                     "drug_class": drug_class,
                     "source": "manual",
@@ -2113,6 +2116,7 @@ def _render_dialysis_medications(
             "drug_class",
             "drug_name",
             "dose",
+            "unit",
             "frequency",
             "start_date",
             "status",
@@ -2151,6 +2155,20 @@ def _hospital_drug_name_options(drugs: pd.DataFrame, draft_name: object = "") ->
     draft = _clean_text(draft_name)
     options = list(dict.fromkeys(([draft] if draft else []) + names))
     return options or [draft or ""]
+
+
+def _hospital_drug_unit_options(drugs: pd.DataFrame, selected_drug: pd.Series, draft_unit: object = "") -> list[str]:
+    selected_unit = str(selected_drug.get("default_unit", "")).strip() if not selected_drug.empty else ""
+    draft = _clean_text(draft_unit)
+    units: list[str] = []
+    if "default_unit" in drugs.columns:
+        units = [
+            str(value).strip()
+            for value in drugs["default_unit"].dropna().tolist()
+            if str(value).strip()
+        ]
+    options = list(dict.fromkeys(([draft] if draft else []) + ([selected_unit] if selected_unit else []) + units))
+    return options or [""]
 
 
 def _selected_hospital_drug(drugs: pd.DataFrame, drug_name: str) -> pd.Series:
@@ -2200,7 +2218,7 @@ def _infer_medication_class_from_name(drug_name: str) -> str:
 
 def _build_medication_matrix(medications: pd.DataFrame) -> pd.DataFrame:
     data = medications.copy().fillna("")
-    for col in ("year_month", "drug_class", "drug_name", "dose", "frequency"):
+    for col in ("year_month", "drug_class", "drug_name", "dose", "unit", "frequency"):
         if col not in data.columns:
             data[col] = ""
     months = sorted(
@@ -2227,10 +2245,14 @@ def _dose_frequency_cell(rows: pd.DataFrame) -> str:
         return ""
     values: list[str] = []
     for _, row in rows.iterrows():
-        text = " ".join(part for part in [
+        dose_unit = " ".join(part for part in [
             str(row.get("dose", "")).strip(),
-            str(row.get("frequency", "")).strip(),
         ] if part)
+        unit = str(row.get("unit", "")).strip()
+        if unit:
+            dose_unit = " ".join(part for part in [dose_unit, unit] if part)
+        frequency = str(row.get("frequency", "")).strip()
+        text = " / ".join(part for part in [dose_unit, frequency] if part)
         status = str(row.get("status", "")).strip()
         if status and status not in {"Active", "啟用"}:
             text = f"{text} ({status})".strip()

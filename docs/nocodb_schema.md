@@ -147,6 +147,7 @@
 - `order_code`
 - `drug_name`
 - `dose`
+- `unit`
 - `frequency`
 - `drug_class`
 - `source`

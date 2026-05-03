@@ -65,6 +65,7 @@ Streamlit 前台與規則引擎
 - `chart_no`
 - `drug_name`
 - `dose`
+- `unit`
 - `frequency`
 - `order_date` 或 `start_date`
 

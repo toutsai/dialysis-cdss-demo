@@ -32,6 +32,7 @@ def test_medication_csv_adapter_infers_drug_class(tmp_path: Path):
         "chart_no": "A001",
         "drug_name": "Darbepoetin alfa",
         "dose": "40",
+        "unit": "mcg",
         "frequency": "QW",
         "start_date": "2026-04-01",
     }]).to_csv(csv_path, index=False, encoding="utf-8-sig")
@@ -39,6 +40,7 @@ def test_medication_csv_adapter_infers_drug_class(tmp_path: Path):
     rows = fetch_medications_from_csv(csv_path)
 
     assert rows[0]["drug_class"] == "ESA"
+    assert rows[0]["unit"] == "mcg"
     assert rows[0]["year_month"] == "202604"
 
 
