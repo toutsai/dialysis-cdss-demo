@@ -52,6 +52,8 @@ def ensure_database(seed_dir: Path = DEFAULT_SEED_DIR, db_path: Path | str | Non
         _ensure_staff_columns(conn)
         _ensure_hospital_drug_columns(conn)
         _ensure_dialysis_order_columns(conn)
+        _ensure_lab_result_columns(conn)
+        _ensure_medication_columns(conn)
         _ensure_handoffs_table(conn)
 
 
@@ -70,6 +72,8 @@ def sync_seed_csv(seed_dir: Path = DEFAULT_SEED_DIR, db_path: Path | str | None 
         _restore_staff_credentials(conn, existing_staff)
         _ensure_hospital_drug_columns(conn)
         _ensure_dialysis_order_columns(conn)
+        _ensure_lab_result_columns(conn)
+        _ensure_medication_columns(conn)
         _ensure_handoffs_table(conn)
 
 
@@ -225,6 +229,14 @@ def replace_hospital_drugs(rows: pd.DataFrame) -> None:
     with connect() as conn:
         rows.to_sql("hospital_drugs", conn, if_exists="replace", index=False)
         _ensure_hospital_drug_columns(conn)
+
+
+def replace_synced_labs(rows: pd.DataFrame, source: str = "hospital_csv") -> int:
+    return _replace_synced_rows("lab_results", rows, source)
+
+
+def replace_synced_medications(rows: pd.DataFrame, source: str = "hospital_csv") -> int:
+    return _replace_synced_rows("medications", rows, source)
 
 
 def replace_patient_registry(rows: pd.DataFrame) -> None:
@@ -390,6 +402,45 @@ def _align_rows_to_table(conn: sqlite3.Connection, table: str, rows: pd.DataFram
     return rows[table_columns]
 
 
+def _replace_synced_rows(table: str, rows: pd.DataFrame, source: str) -> int:
+    if table not in {"lab_results", "medications"}:
+        raise ValueError(f"Unsupported hospital sync table: {table}")
+    rows = rows.fillna("").copy()
+    if rows.empty:
+        return 0
+    source = str(source or "").strip() or "hospital_csv"
+    if "source" not in rows.columns:
+        rows["source"] = source
+    rows["source"] = rows["source"].astype(str).str.strip().replace("", source)
+    if "synced_at" in rows.columns:
+        rows["synced_at"] = rows["synced_at"].astype(str)
+    with connect() as conn:
+        if table == "lab_results":
+            _ensure_lab_result_columns(conn)
+        else:
+            _ensure_medication_columns(conn)
+
+        table_rows = _align_rows_to_table(conn, table, rows)
+        sources = sorted({str(value).strip() for value in table_rows["source"].tolist() if str(value).strip()})
+        chart_nos = sorted({str(value).strip() for value in table_rows["chart_no"].tolist() if str(value).strip()})
+        year_months = sorted({str(value).strip() for value in table_rows["year_month"].tolist() if str(value).strip()})
+        if sources and chart_nos and year_months:
+            source_placeholders = ",".join("?" for _ in sources)
+            chart_placeholders = ",".join("?" for _ in chart_nos)
+            month_placeholders = ",".join("?" for _ in year_months)
+            conn.execute(
+                f"""
+                delete from {table}
+                where source in ({source_placeholders})
+                  and chart_no in ({chart_placeholders})
+                  and year_month in ({month_placeholders})
+                """,
+                [*sources, *chart_nos, *year_months],
+            )
+        table_rows.to_sql(table, conn, if_exists="append", index=False)
+    return len(rows)
+
+
 def _ensure_clinical_event_columns(conn: sqlite3.Connection) -> None:
     if "clinical_events" not in _table_names(conn):
         return
@@ -485,6 +536,81 @@ def _ensure_hospital_drug_columns(conn: sqlite3.Connection) -> None:
     for col, default in defaults.items():
         if col not in cols:
             conn.execute(f"alter table hospital_drugs add column {col} text default '{default}'")
+
+
+def _ensure_lab_result_columns(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        create table if not exists lab_results (
+            chart_no text,
+            deid text,
+            name text,
+            year_month text,
+            item_key text,
+            value text,
+            unit text,
+            report_date text,
+            source text
+        )
+        """
+    )
+    cols = [row["name"] for row in conn.execute("pragma table_info(lab_results)")]
+    defaults = {
+        "chart_no": "",
+        "deid": "",
+        "name": "",
+        "year_month": "",
+        "item_key": "",
+        "value": "",
+        "unit": "",
+        "report_date": "",
+        "source": "mock",
+        "source_record_id": "",
+        "synced_at": "",
+    }
+    for col, default in defaults.items():
+        if col not in cols:
+            conn.execute(f"alter table lab_results add column {col} text default '{default}'")
+
+
+def _ensure_medication_columns(conn: sqlite3.Connection) -> None:
+    conn.execute(
+        """
+        create table if not exists medications (
+            chart_no text,
+            deid text,
+            name text,
+            year_month text,
+            order_code text,
+            drug_name text,
+            dose text,
+            frequency text,
+            drug_class text,
+            source text
+        )
+        """
+    )
+    cols = [row["name"] for row in conn.execute("pragma table_info(medications)")]
+    defaults = {
+        "chart_no": "",
+        "deid": "",
+        "name": "",
+        "year_month": "",
+        "order_code": "",
+        "drug_name": "",
+        "dose": "",
+        "frequency": "",
+        "drug_class": "OTHER",
+        "source": "mock",
+        "source_record_id": "",
+        "start_date": "",
+        "end_date": "",
+        "status": "",
+        "synced_at": "",
+    }
+    for col, default in defaults.items():
+        if col not in cols:
+            conn.execute(f"alter table medications add column {col} text default '{default}'")
 
 
 def _ensure_dialysis_order_columns(conn: sqlite3.Connection) -> None:

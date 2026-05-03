@@ -191,7 +191,17 @@ exports/nocodb_seed/
 
 ## 院內串接保留點
 
-目前以下地方都先保留 stub：
+院內資料串接文件見 [docs/hospital_integration.md](docs/hospital_integration.md)。
+
+目前抽血已有第一版 CSV bridge 骨架：
+
+```powershell
+python scripts\sync_hospital_data.py --lab-csv "D:\secure-export\labs.csv"
+```
+
+正式 API 尚未接上前，可以先請資訊室每日匯出抽血 CSV / SFTP，再由同步程式寫入本地 SQLite 的 `lab_results`。藥物資料第一階段先由前台輸入；`medication_client.py` 只保留為未來選配。
+
+以下 hospital adapter 是正式 HIS/LIS/API 的替換位置：
 
 - `src/adapters/hospital/patient_client.py`
 - `src/adapters/hospital/schedule_client.py`
@@ -202,4 +212,4 @@ exports/nocodb_seed/
 - `src/adapters/hospital/exam_client.py`
 - `src/adapters/hospital/notify_client.py`
 
-每個 stub 都會丟出 `NotImplementedError`，訊息中標註 `TODO(HIS)`，之後拿到院內 API 文件時可逐一替換。
+還沒有實作正式 API 的 adapter 會丟出 `NotImplementedError`，訊息中標註 `TODO(HIS)`；之後拿到院內 API 文件時可逐一替換。
