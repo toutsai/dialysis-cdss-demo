@@ -2671,7 +2671,20 @@ def _render_treatment_trends(chart_no: str, detail: dict[str, pd.DataFrame], cur
     if timeline.empty:
         st.info("目前沒有累積藥物或透析醫囑介入紀錄。")
     else:
-        st.dataframe(timeline, use_container_width=True, hide_index=True, height=min(360, 80 + len(timeline) * 38))
+        st.dataframe(
+            timeline,
+            use_container_width=True,
+            hide_index=True,
+            height=min(360, 80 + len(timeline) * 38),
+            column_config={
+                "日期": st.column_config.TextColumn("日期", width="small"),
+                "月份": st.column_config.TextColumn("月份", width="small"),
+                "類型": st.column_config.TextColumn("類型", width="small"),
+                "品項": st.column_config.TextColumn("品項", width="medium"),
+                "變動": st.column_config.TextColumn("變動", width="large"),
+                "更新者": st.column_config.TextColumn("更新者", width="small"),
+            },
+        )
 
     st.markdown("### 建議區塊")
     recs = evaluate_month(
@@ -2749,45 +2762,187 @@ def _style_trend_row(row: pd.Series) -> list[str]:
 
 def _build_intervention_timeline(meds: pd.DataFrame, orders: pd.DataFrame, selected_month: str) -> pd.DataFrame:
     rows: list[dict[str, str]] = []
-    if not meds.empty:
-        for _, row in meds.fillna("").iterrows():
-            month = str(row.get("year_month", "")).strip()
-            if month and month > selected_month:
-                continue
-            drug_class = DIALYSIS_MEDICATION_CLASS_LABELS.get(str(row.get("drug_class", "")), str(row.get("drug_class", "")))
-            content = " ".join(part for part in [
-                str(row.get("drug_name", "")).strip(),
-                str(row.get("dose", "")).strip(),
-                str(row.get("unit", "")).strip(),
-                str(row.get("frequency", "")).strip(),
-            ] if part)
-            rows.append({
-                "月份": month,
-                "類型": "洗腎藥物",
-                "內容": f"{drug_class}｜{content}" if drug_class else content,
-                "更新者": str(row.get("updated_by", "") or row.get("source", "")).strip(),
-            })
-    if not orders.empty:
-        for _, row in orders.fillna("").iterrows():
-            month = str(row.get("order_month", "")).strip()
-            if month and month > selected_month:
-                continue
-            content = " / ".join(part for part in [
-                f"AK {row.get('dialyzer', '')}".strip() if str(row.get("dialyzer", "")).strip() else "",
-                f"BF {row.get('blood_flow', '')}".strip() if str(row.get("blood_flow", "")).strip() else "",
-                f"DF {row.get('dialysate_flow', '')}".strip() if str(row.get("dialysate_flow", "")).strip() else "",
-                f"DW {row.get('dry_weight', '')}".strip() if str(row.get("dry_weight", "")).strip() else "",
-                f"Ca {row.get('dialysate_ca', '')}".strip() if str(row.get("dialysate_ca", "")).strip() else "",
-            ] if part)
-            rows.append({
-                "月份": month,
-                "類型": "透析醫囑",
-                "內容": content or "透析醫囑調整",
-                "更新者": str(row.get("updated_by", "")).strip(),
-            })
+    rows.extend(_medication_change_events(meds, selected_month))
+    rows.extend(_dialysis_order_change_events(orders, selected_month))
     if not rows:
         return pd.DataFrame()
-    return pd.DataFrame(rows).sort_values(["月份", "類型"], ascending=[False, True]).head(20)
+    timeline = pd.DataFrame(rows).sort_values(["_sort", "類型", "品項"], ascending=[False, True, True])
+    return timeline.drop(columns=["_sort"], errors="ignore").head(20)
+
+
+def _medication_change_events(meds: pd.DataFrame, selected_month: str) -> list[dict[str, str]]:
+    if not meds.empty:
+        data = meds.copy().fillna("")
+    else:
+        return []
+    for col in ("year_month", "drug_class", "drug_name", "dose", "unit", "frequency", "status", "start_date", "updated_at"):
+        if col not in data.columns:
+            data[col] = ""
+    data = data[data["year_month"].astype(str) <= selected_month].copy()
+    if data.empty:
+        return []
+    data["_change_key"] = data.apply(_medication_change_key, axis=1)
+    data["_sort"] = data.apply(lambda row: _event_sort_key(row, "year_month", ["start_date", "updated_at"]), axis=1)
+    data = data.sort_values(["_change_key", "_sort", "updated_at"])
+
+    events: list[dict[str, str]] = []
+    for _, group in data.groupby("_change_key", sort=False):
+        previous_state = ""
+        for _, row in group.iterrows():
+            current_state = _medication_state_text(row)
+            if not current_state:
+                continue
+            if not previous_state:
+                change = f"新增：{current_state}"
+            elif current_state == previous_state:
+                continue
+            else:
+                change = f"{previous_state} → {current_state}"
+            month = str(row.get("year_month", "")).strip()
+            events.append({
+                "日期": _event_display_date(row, "year_month", ["start_date", "updated_at"]),
+                "月份": month,
+                "類型": "洗腎藥物",
+                "品項": _medication_item_label(row),
+                "變動": change,
+                "更新者": _row_updated_by(row),
+                "_sort": str(row.get("_sort", "")),
+            })
+            previous_state = current_state
+    return events
+
+
+def _dialysis_order_change_events(orders: pd.DataFrame, selected_month: str) -> list[dict[str, str]]:
+    if orders.empty:
+        return []
+    data = orders.copy().fillna("")
+    for col in ("order_month", "effective_date", "updated_at"):
+        if col not in data.columns:
+            data[col] = ""
+    data = data[data["order_month"].astype(str) <= selected_month].copy()
+    if data.empty:
+        return []
+    data["_sort"] = data.apply(lambda row: _event_sort_key(row, "order_month", ["effective_date", "updated_at"]), axis=1)
+    data = data.sort_values(["_sort", "updated_at"])
+
+    events: list[dict[str, str]] = []
+    previous_state: dict[str, str] = {}
+    for _, row in data.iterrows():
+        current_state = _dialysis_order_state(row)
+        if not current_state:
+            continue
+        if not previous_state:
+            change = "新增：" + " / ".join(f"{key} {value}" for key, value in current_state.items() if value)
+        else:
+            changes = []
+            for key in [
+                "AK",
+                "BF",
+                "DF",
+                "DW",
+                "Ca",
+                "透析日",
+                "班別",
+                "床位",
+                "抗凝 Loading",
+                "抗凝 Maintain",
+                "血管通路",
+            ]:
+                old = previous_state.get(key, "")
+                new = current_state.get(key, "")
+                if old != new:
+                    changes.append(f"{key} {old or '未填'} → {new or '未填'}")
+            if not changes:
+                continue
+            change = "；".join(changes)
+        events.append({
+            "日期": _event_display_date(row, "order_month", ["effective_date", "updated_at"]),
+            "月份": str(row.get("order_month", "")).strip(),
+            "類型": "透析醫囑",
+            "品項": "透析條件",
+            "變動": change,
+            "更新者": _row_updated_by(row),
+            "_sort": str(row.get("_sort", "")),
+        })
+        previous_state = current_state
+    return events
+
+
+def _medication_change_key(row: pd.Series) -> str:
+    drug_class = str(row.get("drug_class", "")).strip()
+    if drug_class in {"Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER"}:
+        return "PHOSPHATE_BINDER"
+    return drug_class or str(row.get("drug_name", "")).strip()
+
+
+def _medication_item_label(row: pd.Series) -> str:
+    drug_class = str(row.get("drug_class", "")).strip()
+    if drug_class in {"Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER"}:
+        return "降磷藥"
+    class_label = DIALYSIS_MEDICATION_CLASS_LABELS.get(drug_class, drug_class)
+    drug_name = str(row.get("drug_name", "")).strip()
+    return "｜".join(part for part in [class_label, drug_name] if part) or "洗腎藥物"
+
+
+def _medication_state_text(row: pd.Series) -> str:
+    state = " ".join(part for part in [
+        str(row.get("drug_name", "")).strip(),
+        str(row.get("dose", "")).strip(),
+        str(row.get("unit", "")).strip(),
+    ] if part)
+    frequency = str(row.get("frequency", "")).strip()
+    if frequency:
+        state = " / ".join(part for part in [state, frequency] if part)
+    status = str(row.get("status", "")).strip()
+    if status and status not in {"Active", "啟用"}:
+        state = f"{state} ({status})".strip()
+    return state
+
+
+def _dialysis_order_state(row: pd.Series) -> dict[str, str]:
+    access = str(row.get("vascular_access", "")).strip()
+    if not access:
+        access = " ".join(part for part in [
+            str(row.get("access_side", "")).strip(),
+            str(row.get("access_type", "")).strip(),
+        ] if part)
+    state = {
+        "AK": str(row.get("dialyzer", "")).strip(),
+        "BF": str(row.get("blood_flow", "")).strip(),
+        "DF": str(row.get("dialysate_flow", "")).strip(),
+        "DW": str(row.get("dry_weight", "")).strip(),
+        "Ca": str(row.get("dialysate_ca", "")).strip(),
+        "透析日": str(row.get("frequency", "")).strip(),
+        "班別": str(row.get("shift", "")).strip(),
+        "床位": str(row.get("bed", "")).strip(),
+        "抗凝 Loading": str(row.get("anticoagulant_loading", "")).strip(),
+        "抗凝 Maintain": str(row.get("anticoagulant_maintain", "")).strip(),
+        "血管通路": access,
+    }
+    return {key: value for key, value in state.items() if value}
+
+
+def _event_display_date(row: pd.Series, month_col: str, date_cols: list[str]) -> str:
+    for col in date_cols:
+        value = str(row.get(col, "")).strip()
+        if value:
+            return value[:10]
+    month = str(row.get(month_col, "")).strip()
+    if len(month) == 6:
+        return f"{month[:4]}-{month[4:]}-01"
+    return month
+
+
+def _event_sort_key(row: pd.Series, month_col: str, date_cols: list[str]) -> str:
+    display_date = _event_display_date(row, month_col, date_cols)
+    if display_date:
+        return display_date
+    month = str(row.get(month_col, "")).strip()
+    return f"{month[:4]}-{month[4:]}-01" if len(month) == 6 else month
+
+
+def _row_updated_by(row: pd.Series) -> str:
+    return str(row.get("updated_by", "") or row.get("source", "")).strip()
 
 
 def _render_suggestion_cards(
