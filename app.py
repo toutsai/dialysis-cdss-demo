@@ -88,6 +88,12 @@ DIALYSIS_MEDICATION_CLASS_LABELS = {
     "Phosphate binder": "降磷藥",
 }
 DIALYSIS_MEDICATION_CLASS_OPTIONS = ["ESA", "IRON_IV", "CALCIUM_BINDER", "NON_CALCIUM_BINDER", "K_BINDER", "PTH", "OTHER"]
+HOSPITAL_DRUG_TYPE_TO_MED_CLASS = {
+    "ESA": "ESA",
+    "降磷藥": "CALCIUM_BINDER",
+    "降鉀藥": "K_BINDER",
+    "副甲狀腺亢進藥物": "PTH",
+}
 
 
 st.set_page_config(
@@ -2030,6 +2036,7 @@ def _render_dialysis_medications(
     can_edit = _can_edit(current_role, "dialysis_medications")
     draft_key = f"medication-draft-{chart_no}"
     draft = st.session_state.pop(draft_key, {})
+    hospital_drugs = db.active_hospital_drugs().fillna("")
 
     if can_edit:
         with st.form(f"dialysis-medication-form-{chart_no}", clear_on_submit=True):
@@ -2037,28 +2044,27 @@ def _render_dialysis_medications(
             c1, c2, c3 = st.columns([1, 1, 2])
             default_month = str(draft.get("year_month") or datetime.now().strftime("%Y%m"))
             year_month = c1.text_input("月份", value=default_month, help="格式：YYYYMM")
-            drug_class_default = str(draft.get("drug_class") or "ESA")
-            drug_class_index = (
-                DIALYSIS_MEDICATION_CLASS_OPTIONS.index(drug_class_default)
-                if drug_class_default in DIALYSIS_MEDICATION_CLASS_OPTIONS
-                else 0
-            )
-            drug_class = c2.selectbox(
-                "藥物類別",
-                DIALYSIS_MEDICATION_CLASS_OPTIONS,
-                index=drug_class_index,
-                format_func=lambda value: DIALYSIS_MEDICATION_CLASS_LABELS.get(value, value),
-            )
-            drug_name = c3.text_input("藥名", value=str(draft.get("drug_name", "")))
+            drug_type_options = _hospital_drug_type_options(hospital_drugs)
+            draft_class = str(draft.get("drug_class") or "ESA")
+            draft_type = _med_class_to_hospital_drug_type(draft_class)
+            type_index = drug_type_options.index(draft_type) if draft_type in drug_type_options else 0
+            drug_type = c2.selectbox("類別", drug_type_options, index=type_index)
+            filtered_drugs = _filter_hospital_drugs_by_type(hospital_drugs, drug_type)
+            drug_options = _hospital_drug_name_options(filtered_drugs, draft.get("drug_name", ""))
+            drug_name = c3.selectbox("品項", drug_options, index=0)
+            selected_drug = _selected_hospital_drug(filtered_drugs, drug_name)
+            drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
+            default_unit = str(selected_drug.get("default_unit", "")).strip() if not selected_drug.empty else ""
 
             c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-            dose = c1.text_input("劑量", value=str(draft.get("dose", "")))
+            dose = c1.text_input("劑量", value=str(draft.get("dose", "")), placeholder=default_unit or "")
             frequency = c2.text_input("頻率", value=str(draft.get("frequency", "")))
             start_date = c3.date_input("開始日期", value=datetime.now().date())
             status = c4.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0)
 
             c1, c2 = st.columns([1, 2])
-            order_code = c1.text_input("醫囑/藥品碼", value=str(draft.get("order_code", "")))
+            order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
+            order_code = c1.text_input("醫囑/藥品碼", value=order_code_default)
             note = c2.text_input("備註", value=str(draft.get("note", "")))
             submitted = st.form_submit_button("新增洗腎藥物", type="primary")
 
@@ -2099,28 +2105,138 @@ def _render_dialysis_medications(
     if medications.empty:
         st.info("目前沒有洗腎藥物紀錄。")
         return
-    display_columns = [
-        "year_month",
-        "drug_class",
-        "drug_name",
-        "dose",
-        "frequency",
-        "start_date",
-        "status",
-        "source",
-        "updated_by",
-        "updated_at",
-        "note",
-    ]
-    display = medications.copy()
-    for col in display_columns:
-        if col not in display.columns:
-            display[col] = ""
-    display = display.sort_values(["year_month", "drug_class", "drug_name"], ascending=[False, True, True])
-    display = display[display_columns].copy()
-    display["drug_class"] = display["drug_class"].map(lambda value: DIALYSIS_MEDICATION_CLASS_LABELS.get(str(value), str(value)))
-    display.columns = [COLUMN_LABELS.get(col, col) for col in display_columns]
-    st.dataframe(display, use_container_width=True, hide_index=True, height=360)
+    matrix = _build_medication_matrix(medications)
+    st.dataframe(matrix, use_container_width=True, hide_index=True, height=min(420, 80 + len(matrix) * 38))
+    with st.expander("詳細紀錄"):
+        display_columns = [
+            "year_month",
+            "drug_class",
+            "drug_name",
+            "dose",
+            "frequency",
+            "start_date",
+            "status",
+            "source",
+            "updated_by",
+            "updated_at",
+            "note",
+        ]
+        display = medications.copy()
+        for col in display_columns:
+            if col not in display.columns:
+                display[col] = ""
+        display = display.sort_values(["year_month", "drug_class", "drug_name"], ascending=[False, True, True])
+        display = display[display_columns].copy()
+        display["drug_class"] = display["drug_class"].map(lambda value: DIALYSIS_MEDICATION_CLASS_LABELS.get(str(value), str(value)))
+        display.columns = [COLUMN_LABELS.get(col, col) for col in display_columns]
+        st.dataframe(display, use_container_width=True, hide_index=True, height=280)
+
+
+def _hospital_drug_type_options(drugs: pd.DataFrame) -> list[str]:
+    default = ["ESA", "降磷藥", "降鉀藥", "副甲狀腺亢進藥物"]
+    if drugs.empty or "drug_type" not in drugs.columns:
+        return default
+    values = [str(value).strip() for value in drugs["drug_type"].dropna().tolist() if str(value).strip()]
+    return list(dict.fromkeys([*default, *values]))
+
+
+def _filter_hospital_drugs_by_type(drugs: pd.DataFrame, drug_type: str) -> pd.DataFrame:
+    if drugs.empty or "drug_type" not in drugs.columns:
+        return pd.DataFrame()
+    return drugs[drugs["drug_type"].astype(str).str.strip() == str(drug_type).strip()].copy()
+
+
+def _hospital_drug_name_options(drugs: pd.DataFrame, draft_name: object = "") -> list[str]:
+    names = [str(value).strip() for value in drugs.get("drug_name", pd.Series(dtype=str)).dropna().tolist() if str(value).strip()]
+    draft = _clean_text(draft_name)
+    options = list(dict.fromkeys(([draft] if draft else []) + names))
+    return options or [draft or ""]
+
+
+def _selected_hospital_drug(drugs: pd.DataFrame, drug_name: str) -> pd.Series:
+    if drugs.empty or not drug_name:
+        return pd.Series(dtype=object)
+    matches = drugs[drugs["drug_name"].astype(str).str.strip() == str(drug_name).strip()]
+    if matches.empty:
+        return pd.Series(dtype=object)
+    return matches.iloc[0]
+
+
+def _hospital_drug_type_to_med_class(drug_type: str, drug_name: str = "") -> str:
+    mapped = HOSPITAL_DRUG_TYPE_TO_MED_CLASS.get(str(drug_type).strip())
+    if mapped:
+        return mapped
+    return _infer_medication_class_from_name(drug_name)
+
+
+def _med_class_to_hospital_drug_type(drug_class: str) -> str:
+    reverse = {
+        "ESA": "ESA",
+        "IRON_IV": "ESA",
+        "CALCIUM_BINDER": "降磷藥",
+        "NON_CALCIUM_BINDER": "降磷藥",
+        "K_BINDER": "降鉀藥",
+        "PTH": "副甲狀腺亢進藥物",
+    }
+    return reverse.get(str(drug_class).strip(), "ESA")
+
+
+def _infer_medication_class_from_name(drug_name: str) -> str:
+    text = str(drug_name or "").upper()
+    if any(token in text for token in ("EPO", "DARBE", "MIRCERA", "EPOETIN", "NESP")):
+        return "ESA"
+    if any(token in text for token in ("VENOFER", "FERRIC", "IRON")):
+        return "IRON_IV"
+    if any(token in text for token in ("CALCIUM CARBONATE", "CALCIUM ACETATE")):
+        return "CALCIUM_BINDER"
+    if any(token in text for token in ("SEVELAMER", "LANTHANUM", "VELPHORO")):
+        return "NON_CALCIUM_BINDER"
+    if any(token in text for token in ("LOKELMA", "KAYEXALATE")):
+        return "K_BINDER"
+    if any(token in text for token in ("CINACALCET", "CALCITRIOL", "PARICALCITOL")):
+        return "PTH"
+    return "OTHER"
+
+
+def _build_medication_matrix(medications: pd.DataFrame) -> pd.DataFrame:
+    data = medications.copy().fillna("")
+    for col in ("year_month", "drug_class", "drug_name", "dose", "frequency"):
+        if col not in data.columns:
+            data[col] = ""
+    months = sorted(
+        {str(value).strip() for value in data["year_month"].dropna().tolist() if str(value).strip()},
+        reverse=True,
+    )
+    rows: list[dict[str, str]] = []
+    grouped = data.groupby(["drug_class", "drug_name"], dropna=False, sort=True)
+    for (drug_class, drug_name), group in grouped:
+        label = "｜".join(part for part in [
+            DIALYSIS_MEDICATION_CLASS_LABELS.get(str(drug_class), str(drug_class)),
+            str(drug_name).strip(),
+        ] if part)
+        row = {"藥物": label or "未命名藥物"}
+        for month in months:
+            month_rows = group[group["year_month"].astype(str) == month]
+            row[month] = _dose_frequency_cell(month_rows)
+        rows.append(row)
+    return pd.DataFrame(rows, columns=["藥物", *months])
+
+
+def _dose_frequency_cell(rows: pd.DataFrame) -> str:
+    if rows.empty:
+        return ""
+    values: list[str] = []
+    for _, row in rows.iterrows():
+        text = " ".join(part for part in [
+            str(row.get("dose", "")).strip(),
+            str(row.get("frequency", "")).strip(),
+        ] if part)
+        status = str(row.get("status", "")).strip()
+        if status and status not in {"Active", "啟用"}:
+            text = f"{text} ({status})".strip()
+        if text:
+            values.append(text)
+    return "；".join(dict.fromkeys(values))
 
 
 def _editable_existing_records(
