@@ -2040,35 +2040,70 @@ def _render_dialysis_medications(
     hospital_drugs = db.active_hospital_drugs().fillna("")
 
     if can_edit:
-        with st.form(f"dialysis-medication-form-{chart_no}", clear_on_submit=True):
-            st.markdown("#### 新增 / 調整洗腎藥物")
-            c1, c2, c3 = st.columns([1, 1, 2])
-            default_month = str(draft.get("year_month") or datetime.now().strftime("%Y%m"))
-            year_month = c1.text_input("月份", value=default_month, help="格式：YYYYMM")
-            drug_type_options = _hospital_drug_type_options(hospital_drugs)
-            draft_class = str(draft.get("drug_class") or "ESA")
-            draft_type = _med_class_to_hospital_drug_type(draft_class)
-            type_index = drug_type_options.index(draft_type) if draft_type in drug_type_options else 0
-            drug_type = c2.selectbox("類別", drug_type_options, index=type_index)
-            filtered_drugs = _filter_hospital_drugs_by_type(hospital_drugs, drug_type)
-            drug_options = _hospital_drug_name_options(filtered_drugs, draft.get("drug_name", ""))
-            drug_name = c3.selectbox("品項", drug_options, index=0)
-            selected_drug = _selected_hospital_drug(filtered_drugs, drug_name)
-            drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
-            unit_options = _hospital_drug_unit_options(filtered_drugs, selected_drug, draft.get("unit", ""))
+        st.markdown("#### 新增 / 調整洗腎藥物")
+        base_key = f"dialysis-medication-{chart_no}"
+        if draft:
+            _seed_widget_state(base_key, {
+                "year_month": draft.get("year_month", ""),
+                "dose": draft.get("dose", ""),
+                "frequency": draft.get("frequency", ""),
+                "note": draft.get("note", ""),
+                "order_code": draft.get("order_code", ""),
+                "drug_type": _med_class_to_hospital_drug_type(str(draft.get("drug_class") or "ESA")),
+            })
 
-            c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
-            dose = c1.text_input("劑量", value=str(draft.get("dose", "")))
-            unit = c2.selectbox("單位", unit_options, index=0, format_func=lambda value: value or "未設定")
-            frequency = c3.text_input("頻率", value=str(draft.get("frequency", "")))
-            start_date = c4.date_input("開始日期", value=datetime.now().date())
-            status = c5.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0)
+        c1, c2, c3 = st.columns([1, 1, 2])
+        default_month = str(draft.get("year_month") or datetime.now().strftime("%Y%m"))
+        year_month_key = f"{base_key}-year_month"
+        st.session_state.setdefault(year_month_key, default_month)
+        year_month = c1.text_input("月份", help="格式：YYYYMM", key=year_month_key)
+        drug_type_options = _hospital_drug_type_options(hospital_drugs)
+        draft_class = str(draft.get("drug_class") or "ESA")
+        draft_type = _med_class_to_hospital_drug_type(draft_class)
+        type_key = f"{base_key}-drug_type"
+        if st.session_state.get(type_key) not in drug_type_options:
+            st.session_state[type_key] = draft_type if draft_type in drug_type_options else drug_type_options[0]
+        drug_type = c2.selectbox("類別", drug_type_options, key=type_key)
 
-            c1, c2 = st.columns([1, 2])
-            order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
-            order_code = c1.text_input("醫囑/藥品碼", value=order_code_default)
-            note = c2.text_input("備註", value=str(draft.get("note", "")))
-            submitted = st.form_submit_button("新增洗腎藥物", type="primary")
+        filtered_drugs = _filter_hospital_drugs_by_type(hospital_drugs, drug_type)
+        draft_name = draft.get("drug_name", "") if drug_type == draft_type else ""
+        drug_options = _hospital_drug_name_options(filtered_drugs, draft_name)
+        drug_name_key = f"{base_key}-drug_name-{drug_type}"
+        if draft_name and draft_name in drug_options:
+            st.session_state[drug_name_key] = draft_name
+        if st.session_state.get(drug_name_key) not in drug_options:
+            st.session_state[drug_name_key] = drug_options[0]
+        drug_name = c3.selectbox("品項", drug_options, key=drug_name_key)
+
+        selected_drug = _selected_hospital_drug(filtered_drugs, drug_name)
+        drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
+        unit_options = _hospital_drug_unit_options(filtered_drugs, selected_drug, draft.get("unit", ""))
+
+        c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
+        dose_key = f"{base_key}-dose"
+        st.session_state.setdefault(dose_key, str(draft.get("dose", "")))
+        dose = c1.text_input("劑量", key=dose_key)
+        unit_key = f"{base_key}-unit-{drug_type}-{drug_name}"
+        if draft.get("unit") and str(draft.get("unit")) in unit_options:
+            st.session_state[unit_key] = str(draft.get("unit"))
+        if st.session_state.get(unit_key) not in unit_options:
+            st.session_state[unit_key] = unit_options[0]
+        unit = c2.selectbox("單位", unit_options, key=unit_key, format_func=lambda value: value or "未設定")
+        frequency_key = f"{base_key}-frequency"
+        st.session_state.setdefault(frequency_key, str(draft.get("frequency", "")))
+        frequency = c3.text_input("頻率", key=frequency_key)
+        start_date = c4.date_input("開始日期", value=datetime.now().date(), key=f"{base_key}-start_date")
+        status = c5.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0, key=f"{base_key}-status")
+
+        c1, c2 = st.columns([1, 2])
+        order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
+        order_code_key = f"{base_key}-order_code-{drug_type}-{drug_name}"
+        st.session_state.setdefault(order_code_key, order_code_default)
+        order_code = c1.text_input("醫囑/藥品碼", key=order_code_key)
+        note_key = f"{base_key}-note"
+        st.session_state.setdefault(note_key, str(draft.get("note", "")))
+        note = c2.text_input("備註", key=note_key)
+        submitted = st.button("新增洗腎藥物", type="primary", key=f"{base_key}-submit")
 
         if submitted:
             if not year_month.strip() or not drug_name.strip():
@@ -2134,6 +2169,13 @@ def _render_dialysis_medications(
         display["drug_class"] = display["drug_class"].map(lambda value: DIALYSIS_MEDICATION_CLASS_LABELS.get(str(value), str(value)))
         display.columns = [COLUMN_LABELS.get(col, col) for col in display_columns]
         st.dataframe(display, use_container_width=True, hide_index=True, height=280)
+
+
+def _seed_widget_state(base_key: str, values: dict[str, object]) -> None:
+    for name, value in values.items():
+        key = f"{base_key}-{name}"
+        if value is not None:
+            st.session_state[key] = str(value)
 
 
 def _hospital_drug_type_options(drugs: pd.DataFrame) -> list[str]:
@@ -2716,6 +2758,7 @@ def _build_intervention_timeline(meds: pd.DataFrame, orders: pd.DataFrame, selec
             content = " ".join(part for part in [
                 str(row.get("drug_name", "")).strip(),
                 str(row.get("dose", "")).strip(),
+                str(row.get("unit", "")).strip(),
                 str(row.get("frequency", "")).strip(),
             ] if part)
             rows.append({
@@ -2833,6 +2876,7 @@ def _seed_medication_draft_from_suggestion(
         "drug_class": drug_class,
         "drug_name": str(current.get("drug_name", "")) if not current.empty else ("Darbepoetin alfa" if drug_class == "ESA" else ""),
         "dose": str(getattr(suggestion, "suggested_dose", "") or current.get("dose", "")),
+        "unit": str(current.get("unit", "")) if not current.empty else ("mcg" if drug_class == "ESA" else ""),
         "frequency": str(current.get("frequency", "")) if not current.empty else "",
         "note": getattr(suggestion, "title", "") if suggestion else "由治療趨勢建議帶入",
     }

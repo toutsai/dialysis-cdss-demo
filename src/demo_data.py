@@ -41,9 +41,24 @@ def create_demo_database(path: Path = db.ROOT / "data" / "dialysis_cdss_demo.sql
 
 
 def ensure_demo_database(path: Path = db.ROOT / "data" / "dialysis_cdss_demo.sqlite") -> Path:
-    if not path.exists():
+    if not path.exists() or _needs_demo_refresh(path):
         return create_demo_database(path)
     return path
+
+
+def _needs_demo_refresh(path: Path) -> bool:
+    try:
+        with db.connect(path) as conn:
+            row = conn.execute(
+                """
+                select count(distinct year_month) as month_count
+                from medications
+                where source = 'demo'
+                """
+            ).fetchone()
+            return int(row["month_count"] or 0) < 4
+    except Exception:
+        return True
 
 
 def _build_demo_tables(now: str, today: date) -> dict[str, pd.DataFrame]:
@@ -139,8 +154,8 @@ def _build_demo_tables(now: str, today: date) -> dict[str, pd.DataFrame]:
                 "row_id": f"handoffs-{chart_no}-1",
             })
 
-        lab_results.extend(_lab_results(chart_no, index, today))
-        medications.extend(_medications(chart_no, index))
+        lab_results.extend(_lab_results(chart_no, deid, name, index, today))
+        medications.extend(_medications(chart_no, deid, name, index, today))
         recommendations.append({
             "chart_no": chart_no,
             "deid": deid,
@@ -199,60 +214,121 @@ def _dialysis_order(chart_no: str, deid: str, name: str, frequency: str, shift: 
     }
 
 
-def _lab_results(chart_no: str, index: int, today: date) -> list[dict[str, str]]:
-    month = today.strftime("%Y%m")
-    report_date = today.replace(day=15).isoformat()
-    values = {
-        "Hb": (9.2 + (index % 6) * 0.6, "g/dL"),
-        "Albumin": (3.6 + (index % 4) * 0.15, "g/dL"),
-        "P": (4.4 + (index % 5) * 0.55, "mg/dL"),
-        "Ca": (8.4 + (index % 4) * 0.25, "mg/dL"),
-        "cCa": (8.7 + (index % 4) * 0.28, "mg/dL"),
-        "CaXP": (42 + (index % 5) * 4.5, ""),
-        "Ferritin": (120 + (index % 6) * 80, "ng/mL"),
-        "TSAT": (18 + (index % 6) * 5, "%"),
-        "iPTH": (260 + (index % 7) * 95, "pg/mL"),
-    }
-    return [
-        {
-            "chart_no": chart_no,
-            "year_month": month,
-            "item_key": key,
-            "value": f"{value:.1f}",
-            "unit": unit,
-            "report_date": report_date,
-            "source": "demo",
+def _lab_results(chart_no: str, deid: str, name: str, index: int, today: date) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    for month_index, month_start in enumerate(_recent_month_starts(today, 4)):
+        month = month_start.strftime("%Y%m")
+        report_date = month_start.replace(day=15).isoformat()
+        patient_delta = (index % 5) * 0.12
+        values = {
+            "Hb": (10.8 - month_index * 0.35 + patient_delta, "g/dL"),
+            "Albumin": (3.6 + (index % 4) * 0.12, "g/dL"),
+            "P": (4.6 + month_index * 0.28 + (index % 4) * 0.18, "mg/dL"),
+            "Ca": (8.5 + (index % 4) * 0.18, "mg/dL"),
+            "cCa": (8.7 + (index % 4) * 0.22, "mg/dL"),
+            "CaXP": (42 + month_index * 2.7 + (index % 4) * 2.5, ""),
+            "Ferritin": (280 - month_index * 42 + (index % 3) * 35, "ng/mL"),
+            "TSAT": (28 - month_index * 2.7 + (index % 3) * 2, "%"),
+            "iPTH": (360 + month_index * 65 + (index % 5) * 35, "pg/mL"),
+            "K": (4.7 + (index % 4) * 0.18, "mmol/L"),
+            "Kt/V": (1.38 - month_index * 0.05 - (index % 3) * 0.03, ""),
+            "URR": (71 - month_index * 1.4 - (index % 3), "%"),
         }
-        for key, (value, unit) in values.items()
-    ]
+        for key, (value, unit) in values.items():
+            rows.append({
+                "chart_no": chart_no,
+                "deid": deid,
+                "name": name,
+                "year_month": month,
+                "item_key": key,
+                "value": f"{value:.1f}",
+                "unit": unit,
+                "report_date": report_date,
+                "source": "demo",
+            })
+    return rows
 
 
-def _medications(chart_no: str, index: int) -> list[dict[str, str]]:
-    month = datetime.now().strftime("%Y%m")
-    return [
-        {
+def _medications(chart_no: str, deid: str, name: str, index: int, today: date) -> list[dict[str, str]]:
+    rows: list[dict[str, str]] = []
+    esa_doses = [20, 20, 40, 40] if index % 3 else [20, 40, 40, 60]
+    binder_doses = [1, 1, 2, 2] if index % 2 else [1, 2, 2, 2]
+    for month_index, month_start in enumerate(_recent_month_starts(today, 4)):
+        month = month_start.strftime("%Y%m")
+        start_date = month_start.isoformat()
+        common = {
             "chart_no": chart_no,
+            "deid": deid,
+            "name": name,
             "year_month": month,
+            "source": "demo",
+            "source_record_id": "",
+            "start_date": start_date,
+            "end_date": "",
+            "status": "Active",
+            "updated_by": "system",
+            "updated_at": datetime.combine(month_start, datetime.min.time()).isoformat(timespec="seconds"),
+        }
+        rows.append({
+            **common,
             "drug_class": "ESA",
             "drug_name": "Darbepoetin alfa",
-            "dose": str(20 + (index % 4) * 20),
+            "dose": str(esa_doses[month_index]),
             "unit": "mcg",
             "frequency": "QW",
             "order_code": f"ESA{index:03d}",
-            "source": "demo",
-        },
-        {
-            "chart_no": chart_no,
-            "year_month": month,
-            "drug_class": "Phosphate binder",
-            "drug_name": "Calcium carbonate",
-            "dose": "1",
+            "note": "demo ESA history",
+            "row_id": f"medications-{chart_no}-{month}-esa",
+        })
+        binder_name = "Sevelamer" if index % 4 == 0 and month_index >= 2 else "Calcium carbonate"
+        rows.append({
+            **common,
+            "drug_class": "NON_CALCIUM_BINDER" if binder_name == "Sevelamer" else "CALCIUM_BINDER",
+            "drug_name": binder_name,
+            "dose": str(binder_doses[month_index]),
             "unit": "tab",
             "frequency": "TID with meals",
             "order_code": f"P{index:03d}",
-            "source": "demo",
-        },
-    ]
+            "note": "demo phosphate binder history",
+            "row_id": f"medications-{chart_no}-{month}-binder",
+        })
+        if index % 4 == 0 and month_index >= 2:
+            rows.append({
+                **common,
+                "drug_class": "K_BINDER",
+                "drug_name": "Sodium zirconium cyclosilicate",
+                "dose": "5",
+                "unit": "g",
+                "frequency": "QD",
+                "order_code": f"K{index:03d}",
+                "note": "demo potassium binder history",
+                "row_id": f"medications-{chart_no}-{month}-k",
+            })
+        if index % 5 == 0 and month_index >= 1:
+            rows.append({
+                **common,
+                "drug_class": "PTH",
+                "drug_name": "Cinacalcet",
+                "dose": "25",
+                "unit": "mg",
+                "frequency": "QD",
+                "order_code": f"PTH{index:03d}",
+                "note": "demo SHPT medication history",
+                "row_id": f"medications-{chart_no}-{month}-pth",
+            })
+    return rows
+
+
+def _recent_month_starts(today: date, count: int) -> list[date]:
+    current = today.replace(day=1)
+    return [_add_months(current, -months_ago) for months_ago in reversed(range(count))]
+
+
+def _add_months(value: date, offset: int) -> date:
+    month_index = value.year * 12 + value.month - 1 + offset
+    year = month_index // 12
+    month = month_index % 12 + 1
+    return date(year, month, 1)
 
 
 def _staff(now: str) -> list[dict[str, str]]:

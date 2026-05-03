@@ -201,48 +201,61 @@ def _mock_medication_rows(patients: list[Patient], year_month: str) -> list[dict
     rows: list[dict[str, Any]] = []
     for p in patients:
         seed = _stable_int(p.chart_no)
-        rows.append({
-            "chart_no": p.chart_no,
-            "deid": stable_deid(p.chart_no),
-            "name": p.name,
-            "year_month": year_month,
-            "order_code": "ESA-MOCK",
-            "drug_name": "Darbepoetin alfa",
-            "dose": str(20 + (seed % 5) * 10),
-            "unit": "mcg",
-            "frequency": "QW",
-            "drug_class": "ESA",
-            "source": "mock",
-        })
-        if seed % 3 == 0:
+        esa_doses = [20, 20, 40, 40] if seed % 3 else [20, 40, 40, 60]
+        binder_doses = [1, 1, 2, 2] if seed % 2 else [1, 2, 2, 2]
+        for month_index, month in enumerate(_recent_year_months(year_month, 4)):
             rows.append({
                 "chart_no": p.chart_no,
                 "deid": stable_deid(p.chart_no),
                 "name": p.name,
-                "year_month": year_month,
-                "order_code": "IRON-MOCK",
-                "drug_name": "Venofer",
-                "dose": "100",
-                "unit": "mg",
-                "frequency": "Q2W",
-                "drug_class": "IRON_IV",
+                "year_month": month,
+                "order_code": "ESA-MOCK",
+                "drug_name": "Darbepoetin alfa",
+                "dose": str(esa_doses[month_index]),
+                "unit": "mcg",
+                "frequency": "QW",
+                "drug_class": "ESA",
                 "source": "mock",
             })
-        if seed % 2 == 0:
             rows.append({
                 "chart_no": p.chart_no,
                 "deid": stable_deid(p.chart_no),
                 "name": p.name,
-                "year_month": year_month,
+                "year_month": month,
                 "order_code": "PBINDER-MOCK",
-                "drug_name": "Calcium carbonate",
-                "dose": "1",
+                "drug_name": "Sevelamer" if seed % 4 == 0 and month_index >= 2 else "Calcium carbonate",
+                "dose": str(binder_doses[month_index]),
                 "unit": "tab",
                 "frequency": "TIDCC",
-                "drug_class": "CALCIUM_BINDER",
+                "drug_class": "NON_CALCIUM_BINDER" if seed % 4 == 0 and month_index >= 2 else "CALCIUM_BINDER",
                 "source": "mock",
             })
+            if seed % 3 == 0 and month_index >= 1:
+                rows.append({
+                    "chart_no": p.chart_no,
+                    "deid": stable_deid(p.chart_no),
+                    "name": p.name,
+                    "year_month": month,
+                    "order_code": "IRON-MOCK",
+                    "drug_name": "Venofer",
+                    "dose": "100",
+                    "unit": "mg",
+                    "frequency": "Q2W",
+                    "drug_class": "IRON_IV",
+                    "source": "mock",
+                })
     return rows
+
+
+def _recent_year_months(year_month: str, count: int) -> list[str]:
+    year = int(year_month[:4])
+    month = int(year_month[4:6])
+    current_index = year * 12 + month - 1
+    months = []
+    for months_ago in reversed(range(count)):
+        value = current_index - months_ago
+        months.append(f"{value // 12:04d}{value % 12 + 1:02d}")
+    return months
 
 
 def _recommendation_rows(patients: list[Patient], year_month: str, exported_at: str) -> list[dict[str, Any]]:
