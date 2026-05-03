@@ -214,7 +214,21 @@ st.markdown(
     }
     [data-testid="stSidebar"] {
         background: #eef6ff;
-        border-right: 1px solid #dbeafe;
+        border-right: 2px solid #c7ddf5;
+        box-shadow: 6px 0 18px -22px rgba(15, 23, 42, 0.55);
+    }
+    .st-key-worklist-panel {
+        background: #f8fbff;
+        border-right: 2px solid #d7e3f1;
+        box-shadow: 8px 0 18px -24px rgba(15, 23, 42, 0.42);
+        padding: 0.18rem 0.62rem 0.85rem 0;
+        min-height: calc(100vh - 3.3rem);
+    }
+    .st-key-patient-detail-panel {
+        background: #ffffff;
+        border-left: 1px solid #e2e8f0;
+        padding: 0.05rem 0 0.85rem 0.78rem;
+        min-height: calc(100vh - 3.3rem);
     }
     div[data-testid="stMetric"] {
         background: #ffffff;
@@ -798,19 +812,21 @@ def main() -> None:
     with st.container(key="desktop-workbench"):
         list_col, detail_col = st.columns([0.65, 3.35], gap="small")
         with list_col:
-            filtered = _render_bed_filters(schedules, key_prefix="bed")
-            _render_due_handoff_alerts(filtered, key_prefix="handoff", container_key="handoff-reminders")
-            selected_chart_no = _render_bed_board(filtered, key_prefix="patient", container_key="bed-board-list")
+            with st.container(key="worklist-panel"):
+                filtered = _render_bed_filters(schedules, key_prefix="bed")
+                _render_due_handoff_alerts(filtered, key_prefix="handoff", container_key="handoff-reminders")
+                selected_chart_no = _render_bed_board(filtered, key_prefix="patient", container_key="bed-board-list")
         with detail_col:
-            if mobile_detail_active:
-                st.info("目前在手機詳情模式；若使用桌機版，請按下方按鈕恢復桌機詳情。")
-                if st.button("恢復桌機詳情", key="restore-desktop-detail", use_container_width=True):
-                    st.session_state["mobile_workbench_view"] = "selector"
-                    st.rerun()
-            elif selected_chart_no:
-                _render_patient_panel(selected_chart_no, current_user, current_role)
-            else:
-                st.info("請先從左側病人列表選取病人。")
+            with st.container(key="patient-detail-panel"):
+                if mobile_detail_active:
+                    st.info("目前在手機詳情模式；若使用桌機版，請按下方按鈕恢復桌機詳情。")
+                    if st.button("恢復桌機詳情", key="restore-desktop-detail", use_container_width=True):
+                        st.session_state["mobile_workbench_view"] = "selector"
+                        st.rerun()
+                elif selected_chart_no:
+                    _render_patient_panel(selected_chart_no, current_user, current_role)
+                else:
+                    st.info("請先從左側病人列表選取病人。")
 
     _render_mobile_workbench(schedules, current_user, current_role)
 
