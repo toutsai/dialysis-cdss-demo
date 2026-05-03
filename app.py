@@ -328,6 +328,228 @@ st.markdown(
         background: linear-gradient(135deg, #fff1f2 0%, #ffe4e6 100%);
         border-left-color: #e11d48;
     }
+    .st-key-treatment-trends-panel h3 {
+        font-size: 1.35rem !important;
+        margin-top: 1.05rem !important;
+        margin-bottom: 0.6rem !important;
+    }
+    .st-key-treatment-trends-panel .cdss-card {
+        min-height: 4.25rem;
+        border-radius: 12px;
+        padding: 0.72rem 0.82rem;
+        box-shadow: 0 5px 16px rgba(15, 23, 42, 0.07);
+    }
+    .st-key-treatment-trends-panel .cdss-card .label {
+        font-size: 0.9rem;
+        font-weight: 850;
+        color: #334155;
+    }
+    .st-key-treatment-trends-panel .cdss-card .value {
+        font-size: 1.38rem;
+        font-weight: 900;
+    }
+    .st-key-treatment-trends-panel .cdss-card .subvalue {
+        font-size: 0.94rem;
+        color: #334155;
+    }
+    .cdss-treatment-hero {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(135deg, #e0f2fe 0%, #ecfeff 42%, #fff7ed 100%);
+        border: 1px solid #bae6fd;
+        border-left: 7px solid #0284c7;
+        border-radius: 14px;
+        padding: 1rem 1.05rem;
+        margin: 0.7rem 0 0.8rem 0;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+    }
+    .cdss-treatment-hero::after {
+        content: "";
+        position: absolute;
+        right: 1rem;
+        top: 0.75rem;
+        width: 9rem;
+        height: 5.5rem;
+        border-radius: 999px;
+        background:
+            radial-gradient(circle at 25% 45%, rgba(37, 99, 235, 0.18) 0 14%, transparent 15%),
+            radial-gradient(circle at 55% 40%, rgba(13, 148, 136, 0.18) 0 18%, transparent 19%),
+            radial-gradient(circle at 78% 60%, rgba(217, 119, 6, 0.16) 0 16%, transparent 17%);
+        opacity: 0.9;
+        pointer-events: none;
+        z-index: 0;
+    }
+    .cdss-treatment-hero > div {
+        position: relative;
+        z-index: 1;
+    }
+    .cdss-treatment-kicker {
+        color: #0369a1;
+        font-size: 0.92rem;
+        font-weight: 850;
+        margin-bottom: 0.15rem;
+    }
+    .cdss-treatment-title {
+        color: #0f172a;
+        font-size: 1.55rem;
+        line-height: 1.3;
+        font-weight: 900;
+        margin-bottom: 0.22rem;
+    }
+    .cdss-treatment-subtitle {
+        color: #334155;
+        font-size: 1rem;
+        line-height: 1.45;
+        max-width: 68rem;
+    }
+    .cdss-treatment-flow {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 0.7rem;
+        margin: 0.35rem 0 0.85rem 0;
+    }
+    .cdss-flow-card {
+        background: #ffffff;
+        border: 1px solid #dbeafe;
+        border-radius: 12px;
+        padding: 0.72rem 0.78rem;
+        box-shadow: 0 4px 13px rgba(15, 23, 42, 0.06);
+    }
+    .cdss-flow-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 3.15rem;
+        height: 2.15rem;
+        border-radius: 10px;
+        color: #0f172a;
+        font-weight: 900;
+        margin-bottom: 0.35rem;
+    }
+    .cdss-flow-card:nth-child(1) .cdss-flow-icon { background: #dbeafe; color: #1d4ed8; }
+    .cdss-flow-card:nth-child(2) .cdss-flow-icon { background: #ccfbf1; color: #0f766e; }
+    .cdss-flow-card:nth-child(3) .cdss-flow-icon { background: #fef3c7; color: #b45309; }
+    .cdss-flow-card:nth-child(4) .cdss-flow-icon { background: #ffe4e6; color: #be123c; }
+    .cdss-flow-title {
+        color: #0f172a;
+        font-size: 1.02rem;
+        font-weight: 900;
+        margin-bottom: 0.18rem;
+    }
+    .cdss-flow-text {
+        color: #475569;
+        font-size: 0.9rem;
+        line-height: 1.38;
+    }
+    .cdss-treatment-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+        margin: 0.35rem 0 0.8rem 0;
+    }
+    .cdss-legend-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 999px;
+        color: #334155;
+        font-size: 0.9rem;
+        font-weight: 800;
+        padding: 0.28rem 0.58rem;
+    }
+    .cdss-legend-dot {
+        width: 0.62rem;
+        height: 0.62rem;
+        border-radius: 999px;
+        display: inline-block;
+    }
+    .cdss-dot-rose { background: #fb7185; }
+    .cdss-dot-amber { background: #f59e0b; }
+    .cdss-dot-teal { background: #14b8a6; }
+    .cdss-dot-blue { background: #3b82f6; }
+    .cdss-rec-card {
+        background: #ffffff;
+        border: 1px solid #dbeafe;
+        border-radius: 14px;
+        padding: 0.9rem 0.92rem;
+        min-height: 18rem;
+        box-shadow: 0 6px 18px rgba(15, 23, 42, 0.06);
+    }
+    .cdss-rec-card.anemia { border-top: 5px solid #e11d48; background: linear-gradient(180deg, #fff1f2 0%, #ffffff 34%); }
+    .cdss-rec-card.mbd { border-top: 5px solid #d97706; background: linear-gradient(180deg, #fffbeb 0%, #ffffff 34%); }
+    .cdss-rec-card.adequacy { border-top: 5px solid #0d9488; background: linear-gradient(180deg, #ecfeff 0%, #ffffff 34%); }
+    .cdss-rec-top {
+        display: flex;
+        align-items: center;
+        gap: 0.62rem;
+        margin-bottom: 0.55rem;
+    }
+    .cdss-rec-illustration {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        color: #0f172a;
+        font-size: 1.05rem;
+        font-weight: 900;
+        box-shadow: inset 0 -10px 18px rgba(255, 255, 255, 0.45);
+    }
+    .cdss-rec-card.anemia .cdss-rec-illustration { background: #ffe4e6; color: #be123c; }
+    .cdss-rec-card.mbd .cdss-rec-illustration { background: #fef3c7; color: #b45309; }
+    .cdss-rec-card.adequacy .cdss-rec-illustration { background: #ccfbf1; color: #0f766e; }
+    .cdss-rec-title {
+        color: #0f172a;
+        font-size: 1.2rem;
+        font-weight: 900;
+        line-height: 1.35;
+    }
+    .cdss-rec-evidence {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.35rem;
+        margin: 0.55rem 0 0.7rem 0;
+    }
+    .cdss-rec-evidence-item {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid #e2e8f0;
+        border-radius: 9px;
+        color: #475569;
+        font-size: 0.9rem;
+        font-weight: 750;
+        padding: 0.36rem 0.45rem;
+    }
+    .cdss-rec-suggestion {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 5px solid #d97706;
+        border-radius: 10px;
+        color: #7c2d12;
+        font-size: 0.96rem;
+        font-weight: 820;
+        line-height: 1.45;
+        padding: 0.65rem 0.72rem;
+        margin-top: 0.4rem;
+    }
+    .cdss-rec-suggestion.ok {
+        background: #ecfdf5;
+        border-color: #bbf7d0;
+        border-left-color: #16a34a;
+        color: #166534;
+    }
+    .cdss-rec-note {
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-left: 5px solid #2563eb;
+        border-radius: 11px;
+        color: #1e3a8a;
+        font-size: 0.96rem;
+        font-weight: 800;
+        padding: 0.68rem 0.78rem;
+        margin-top: 0.85rem;
+    }
     .cdss-patient-banner {
         background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 60%, #fef3c7 100%);
         border: 1px solid #bae6fd;
@@ -632,6 +854,18 @@ st.markdown(
         .st-key-patient-tabs button * {
             font-size: 1.02rem !important;
             font-weight: 850 !important;
+        }
+        .cdss-treatment-title {
+            font-size: 1.24rem !important;
+        }
+        .cdss-treatment-flow {
+            grid-template-columns: 1fr !important;
+        }
+        .cdss-rec-evidence {
+            grid-template-columns: 1fr !important;
+        }
+        .cdss-rec-card {
+            min-height: auto !important;
         }
         div[data-testid="stDataFrame"] {
             font-size: 0.95rem;
@@ -2845,59 +3079,107 @@ def _render_treatment_trends(chart_no: str, detail: dict[str, pd.DataFrame], cur
     lab_entities = _lab_entities(month_labs)
     med_entities = _med_entities(month_meds)
 
-    st.markdown("### 1. 重點摘要")
-    _render_treatment_summary(labs, meds, orders, selected_month)
+    with st.container(key="treatment-trends-panel"):
+        _render_treatment_intro(selected_month)
 
-    st.markdown("### 2. 累積趨勢表")
-    trend = _build_lab_trend_table(labs, selected_month)
-    if trend.empty:
-        st.info("目前沒有足夠的累積抽血資料。")
-    else:
-        st.dataframe(
-            trend.style.apply(_style_trend_row, axis=1),
-            use_container_width=True,
-            hide_index=True,
-            height=min(420, 70 + len(trend) * 38),
+        st.markdown("### 1. 重點摘要")
+        _render_treatment_summary(labs, meds, orders, selected_month)
+
+        st.markdown("### 2. 累積趨勢表")
+        trend = _build_lab_trend_table(labs, selected_month)
+        if trend.empty:
+            st.info("目前沒有足夠的累積抽血資料。")
+        else:
+            st.dataframe(
+                trend.style.apply(_style_trend_row, axis=1),
+                use_container_width=True,
+                hide_index=True,
+                height=min(420, 70 + len(trend) * 38),
+            )
+
+        st.markdown("### 3. 治療介入時間軸")
+        timeline = _build_intervention_timeline(meds, orders, selected_month)
+        if timeline.empty:
+            st.info("目前沒有累積藥物或透析醫囑介入紀錄。")
+        else:
+            st.dataframe(
+                timeline,
+                use_container_width=True,
+                hide_index=True,
+                height=min(360, 80 + len(timeline) * 38),
+                column_config={
+                    "日期": st.column_config.TextColumn("日期", width="small"),
+                    "藥名 / 項目(醫囑)": st.column_config.TextColumn("藥名 / 項目(醫囑)", width="medium"),
+                    "變動": st.column_config.TextColumn("變動", width="large"),
+                    "更新者": st.column_config.TextColumn("更新者", width="small"),
+                },
+            )
+
+        st.markdown("### 4. 建議區塊")
+        recs = evaluate_month(
+            chart_no=chart_no,
+            year_month=selected_month,
+            labs=lab_entities,
+            medications=med_entities,
+            thresholds=Thresholds(),
+        )
+        dose_suggestions = build_dose_adjustments(lab_entities, med_entities, rules)
+        _render_suggestion_cards(
+            chart_no=chart_no,
+            selected_month=selected_month,
+            labs=month_labs,
+            meds=meds,
+            orders=orders,
+            recommendations=recs,
+            dose_suggestions=dose_suggestions,
+            can_edit=_can_edit(current_role, "dialysis_medications") or _can_edit(current_role, "dialysis_orders"),
+        )
+        st.markdown(
+            '<div class="cdss-rec-note">建議僅供輔助，最終仍由醫師確認；同意後會先建立草稿，再回到醫囑或藥物頁籤正式儲存。</div>',
+            unsafe_allow_html=True,
         )
 
-    st.markdown("### 3. 治療介入時間軸")
-    timeline = _build_intervention_timeline(meds, orders, selected_month)
-    if timeline.empty:
-        st.info("目前沒有累積藥物或透析醫囑介入紀錄。")
-    else:
-        st.dataframe(
-            timeline,
-            use_container_width=True,
-            hide_index=True,
-            height=min(360, 80 + len(timeline) * 38),
-            column_config={
-                "日期": st.column_config.TextColumn("日期", width="small"),
-                "藥名 / 項目(醫囑)": st.column_config.TextColumn("藥名 / 項目(醫囑)", width="medium"),
-                "變動": st.column_config.TextColumn("變動", width="large"),
-                "更新者": st.column_config.TextColumn("更新者", width="small"),
-            },
-        )
 
-    st.markdown("### 建議區塊")
-    recs = evaluate_month(
-        chart_no=chart_no,
-        year_month=selected_month,
-        labs=lab_entities,
-        medications=med_entities,
-        thresholds=Thresholds(),
+def _render_treatment_intro(selected_month: str) -> None:
+    safe_month = escape(selected_month)
+    st.markdown(
+        f"""
+        <div class="cdss-treatment-hero">
+            <div class="cdss-treatment-kicker">治療趨勢與調整建議 | {safe_month}</div>
+            <div class="cdss-treatment-title">從抽血趨勢到處方調整</div>
+            <div class="cdss-treatment-subtitle">整合抽血、洗腎藥物、透析醫囑與規則建議，協助查房時快速判讀「數值是否異常、是否已處理、下一步可考慮什麼」。</div>
+        </div>
+        <div class="cdss-treatment-flow">
+            <div class="cdss-flow-card">
+                <div class="cdss-flow-icon">Lab</div>
+                <div class="cdss-flow-title">看重點摘要</div>
+                <div class="cdss-flow-text">先抓 Hb、P、cCa、iPTH、Kt/V 與目前治療。</div>
+            </div>
+            <div class="cdss-flow-card">
+                <div class="cdss-flow-icon">Trend</div>
+                <div class="cdss-flow-title">看累積趨勢</div>
+                <div class="cdss-flow-text">用月份橫軸判斷是單點異常或連續變化。</div>
+            </div>
+            <div class="cdss-flow-card">
+                <div class="cdss-flow-icon">Rx</div>
+                <div class="cdss-flow-title">看治療介入</div>
+                <div class="cdss-flow-text">確認藥物與透析醫囑是否已經調整過。</div>
+            </div>
+            <div class="cdss-flow-card">
+                <div class="cdss-flow-icon">Plan</div>
+                <div class="cdss-flow-title">看建議草稿</div>
+                <div class="cdss-flow-text">分組呈現可考慮的藥物或醫囑調整方向。</div>
+            </div>
+        </div>
+        <div class="cdss-treatment-legend">
+            <span class="cdss-legend-chip"><span class="cdss-legend-dot cdss-dot-rose"></span>需要處理</span>
+            <span class="cdss-legend-chip"><span class="cdss-legend-dot cdss-dot-amber"></span>觀察</span>
+            <span class="cdss-legend-chip"><span class="cdss-legend-dot cdss-dot-teal"></span>穩定</span>
+            <span class="cdss-legend-chip"><span class="cdss-legend-dot cdss-dot-blue"></span>近期介入</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
-    dose_suggestions = build_dose_adjustments(lab_entities, med_entities, rules)
-    _render_suggestion_cards(
-        chart_no=chart_no,
-        selected_month=selected_month,
-        labs=month_labs,
-        meds=meds,
-        orders=orders,
-        recommendations=recs,
-        dose_suggestions=dose_suggestions,
-        can_edit=_can_edit(current_role, "dialysis_medications") or _can_edit(current_role, "dialysis_orders"),
-    )
-    st.caption("安全設計：規則引擎只產生建議；醫師按下同意後仍需在藥物或透析醫囑草稿中確認，才會正式寫入。")
 
 
 def _render_treatment_summary(labs: pd.DataFrame, meds: pd.DataFrame, orders: pd.DataFrame, selected_month: str) -> None:
@@ -3152,6 +3434,8 @@ def _render_suggestion_cards(
     with c1:
         _recommendation_card(
             title="貧血 / ESA / 鐵劑",
+            variant="anemia",
+            icon="Hb",
             evidence=[
                 f"Hb {_format_lab_value(_lab_value_for_month(labs, selected_month, 'Hb'))}",
                 f"Ferritin {_format_lab_value(_lab_value_for_month(labs, selected_month, 'Ferritin'))}",
@@ -3166,6 +3450,8 @@ def _render_suggestion_cards(
     with c2:
         _recommendation_card(
             title="CKD-MBD / 鈣磷副甲狀腺",
+            variant="mbd",
+            icon="P",
             evidence=[
                 f"P {_format_lab_value(_lab_value_for_month(labs, selected_month, 'P'))}",
                 f"cCa {_format_lab_value(_lab_value_for_month(labs, selected_month, 'cCa'))}",
@@ -3181,6 +3467,8 @@ def _render_suggestion_cards(
     with c3:
         _recommendation_card(
             title="透析充分性 / 電解質 / 透析醫囑",
+            variant="adequacy",
+            icon="Kt",
             evidence=[
                 f"Kt/V {_format_lab_value(_lab_value_for_month(labs, selected_month, 'Kt/V'))}",
                 f"URR {_format_lab_value(_lab_value_for_month(labs, selected_month, 'URR'))}",
@@ -3193,15 +3481,33 @@ def _render_suggestion_cards(
             _seed_dialysis_order_draft(chart_no, orders, selected_month)
 
 
-def _recommendation_card(title: str, evidence: list[str], suggestions: list[str]) -> None:
-    st.markdown(f"#### {title}")
-    for line in evidence:
-        st.caption(line)
+def _recommendation_card(title: str, evidence: list[str], suggestions: list[str], variant: str, icon: str) -> None:
+    evidence_html = "".join(
+        f'<div class="cdss-rec-evidence-item">{escape(str(line))}</div>'
+        for line in evidence
+        if str(line).strip()
+    )
     if suggestions:
-        for suggestion in suggestions:
-            st.warning(suggestion)
+        suggestions_html = "".join(
+            f'<div class="cdss-rec-suggestion">{escape(str(suggestion))}</div>'
+            for suggestion in suggestions
+            if str(suggestion).strip()
+        )
     else:
-        st.success("目前沒有明顯需調整建議。")
+        suggestions_html = '<div class="cdss-rec-suggestion ok">目前沒有明顯需調整建議。</div>'
+    st.markdown(
+        f"""
+        <div class="cdss-rec-card {escape(variant)}">
+            <div class="cdss-rec-top">
+                <div class="cdss-rec-illustration">{escape(icon)}</div>
+                <div class="cdss-rec-title">{escape(title)}</div>
+            </div>
+            <div class="cdss-rec-evidence">{evidence_html}</div>
+            {suggestions_html}
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def _seed_medication_draft_from_suggestion(
