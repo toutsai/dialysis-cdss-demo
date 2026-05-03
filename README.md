@@ -107,7 +107,7 @@ Demo 預設帳號：
 
 部署到 Streamlit Community Cloud 或 Render 的細節見 `docs/demo_deployment.md`。
 
-若要測試新增 `現在待處理問題` 後通知固定醫師，請在 Streamlit Secrets 設定 `PROBLEM_NOTIFY_TO` 與 SMTP 帳號資訊；Gmail 請使用 app password，不要把密碼寫入 repo。
+若要測試新增或修改 `現在待處理問題` 後通知醫師，建議在 Streamlit Secrets 設定 `LINE_CHANNEL_ACCESS_TOKEN` 與 `LINE_TO_ID`；若 LINE 未設定，系統會 fallback 到 email 的 `PROBLEM_NOTIFY_TO` / SMTP 設定。外部通知預設不含完整問題內容，除非明確設定 `LINE_INCLUDE_PROBLEM_CONTENT = "1"`。
 
 ## 規則設定
 

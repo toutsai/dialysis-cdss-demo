@@ -49,7 +49,17 @@ DIALYSIS_CDSS_DB_PATH = "data/dialysis_cdss_demo.sqlite"
 
 第一次啟動時，app 會自動產生 demo SQLite。
 
-若要測試「新增現在待處理問題後 email 通知固定醫師」，可另外加入：
+若要測試「新增或修改現在待處理問題後通知醫師」，建議優先使用 LINE Messaging API：
+
+```toml
+LINE_CHANNEL_ACCESS_TOKEN = "line-channel-access-token"
+LINE_TO_ID = "line-user-or-group-id"
+LINE_INCLUDE_PROBLEM_CONTENT = "0"
+```
+
+`LINE_INCLUDE_PROBLEM_CONTENT` 預設建議維持 `"0"`；若院內確認 LINE 群組可承載病情內容，再改為 `"1"`。
+
+若未設定 LINE，系統會 fallback 到 email；可另外加入：
 
 ```toml
 PROBLEM_NOTIFY_TO = "fixed-doctor@example.com"

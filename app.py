@@ -787,6 +787,10 @@ def _load_deployment_settings() -> None:
         "SMTP_FROM",
         "EMAIL_TO",
         "EMAIL_FROM",
+        "LINE_CHANNEL_ACCESS_TOKEN",
+        "LINE_TO_ID",
+        "LINE_TO_USER_ID",
+        "LINE_INCLUDE_PROBLEM_CONTENT",
     ]:
         if os.getenv(key):
             continue
@@ -1673,7 +1677,7 @@ def _render_problem_list(chart_no: str, patient: pd.Series, problems: pd.DataFra
                 }])
                 saved = pd.concat([problems.fillna(""), new], ignore_index=True)
                 db.replace_patient_rows("problem_list", chart_no, saved)
-                _notify_pending_problem_if_needed(patient, problem_categories, current_user, now)
+                _notify_pending_problem_if_needed(patient, problem_categories, current_user, now, problem.strip())
                 st.success("已新增主要問題")
                 st.rerun()
     else:
@@ -2067,6 +2071,8 @@ def _editable_existing_records(
 
         rows_to_save = _merge_problem_rows(all_rows, saved) if table == "problem_list" and all_rows is not None else saved
         db.replace_patient_rows(table, chart_no, rows_to_save)
+        if table == "problem_list" and changed.any():
+            _notify_changed_problem_rows_if_needed(chart_no, saved[changed].copy(), current_user, now)
         st.success("已儲存紀錄變更")
         st.rerun()
 
@@ -2575,7 +2581,13 @@ def _problem_categories_label(value: object) -> str:
     return "、".join(_parse_problem_categories(value))
 
 
-def _notify_pending_problem_if_needed(patient: pd.Series, categories: list[str], current_user: str, created_at: str) -> None:
+def _notify_pending_problem_if_needed(
+    patient: pd.Series,
+    categories: list[str],
+    current_user: str,
+    created_at: str,
+    problem_content: str,
+) -> None:
     if "現在待處理問題" not in categories:
         return
     try:
@@ -2584,12 +2596,34 @@ def _notify_pending_problem_if_needed(patient: pd.Series, categories: list[str],
             bed=_clean_text(patient.get("bed")),
             created_by=current_user,
             created_at=created_at,
+            problem_content=problem_content,
         )
     except Exception as exc:
-        st.session_state["problem_notification"] = ("warning", f"已新增；email 通知寄送失敗：{exc}")
+        st.session_state["problem_notification"] = ("warning", f"已儲存；外部通知寄送失敗：{exc}")
         return
     level = "success" if result.sent else "info"
     st.session_state["problem_notification"] = (level, result.message)
+
+
+def _notify_changed_problem_rows_if_needed(chart_no: str, changed_rows: pd.DataFrame, current_user: str, updated_at: str) -> None:
+    if changed_rows.empty:
+        return
+    detail = db.patient_detail(chart_no)
+    patient = detail["patient"].iloc[0] if not detail["patient"].empty else pd.Series({"chart_no": chart_no})
+    schedule = detail["schedule"].iloc[0] if not detail["schedule"].empty else pd.Series(dtype=object)
+    if "name" not in patient or not _clean_text(patient.get("name")):
+        patient["name"] = changed_rows.iloc[0].get("name", "")
+    if "bed" not in patient or not _clean_text(patient.get("bed")):
+        patient["bed"] = schedule.get("bed", "")
+    for _, row in changed_rows.iterrows():
+        categories = _parse_problem_categories(row.get("problem_categories", ""))
+        _notify_pending_problem_if_needed(
+            patient,
+            categories,
+            current_user,
+            updated_at,
+            _clean_text(row.get("problem")),
+        )
 
 
 def _patient_email_mask_name(value: object) -> str:
