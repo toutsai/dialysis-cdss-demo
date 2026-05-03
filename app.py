@@ -230,6 +230,38 @@ st.markdown(
         padding: 0.05rem 0 0.85rem 0.78rem;
         min-height: calc(100vh - 3.3rem);
     }
+    .st-key-patient-detail-panel div[data-testid="stForm"],
+    .st-key-mobile-detail div[data-testid="stForm"] {
+        background: #f8fafc;
+        border: 1px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 0.85rem 0.95rem 0.75rem 0.95rem;
+    }
+    .st-key-patient-detail-panel div[data-baseweb="input"],
+    .st-key-patient-detail-panel div[data-baseweb="textarea"],
+    .st-key-patient-detail-panel div[data-baseweb="select"] > div,
+    .st-key-mobile-detail div[data-baseweb="input"],
+    .st-key-mobile-detail div[data-baseweb="textarea"],
+    .st-key-mobile-detail div[data-baseweb="select"] > div {
+        background: #ffffff !important;
+        border-color: #94a3b8 !important;
+        box-shadow: inset 0 0 0 1px #cbd5e1 !important;
+    }
+    .st-key-patient-detail-panel textarea,
+    .st-key-patient-detail-panel input,
+    .st-key-mobile-detail textarea,
+    .st-key-mobile-detail input {
+        background: #ffffff !important;
+    }
+    .st-key-patient-detail-panel div[data-baseweb="input"]:focus-within,
+    .st-key-patient-detail-panel div[data-baseweb="textarea"]:focus-within,
+    .st-key-patient-detail-panel div[data-baseweb="select"]:focus-within > div,
+    .st-key-mobile-detail div[data-baseweb="input"]:focus-within,
+    .st-key-mobile-detail div[data-baseweb="textarea"]:focus-within,
+    .st-key-mobile-detail div[data-baseweb="select"]:focus-within > div {
+        border-color: #2563eb !important;
+        box-shadow: inset 0 0 0 1px #2563eb, 0 0 0 2px rgba(37, 99, 235, 0.12) !important;
+    }
     div[data-testid="stMetric"] {
         background: #ffffff;
         border: 1px solid #e2e8f0;
