@@ -2038,25 +2038,33 @@ def _render_dialysis_medications(
     draft_key = f"medication-draft-{chart_no}"
     draft = st.session_state.pop(draft_key, {})
     hospital_drugs = db.active_hospital_drugs().fillna("")
+    base_key = f"dialysis-medication-{chart_no}"
+    matrix_key = f"{base_key}-matrix"
+    matrix = _build_medication_matrix(medications) if not medications.empty else pd.DataFrame()
+    matrix_selection = _selected_medication_from_matrix_state(matrix_key, matrix, medications)
 
     if can_edit:
         st.markdown("#### 新增 / 調整洗腎藥物")
-        base_key = f"dialysis-medication-{chart_no}"
         if draft:
             _seed_widget_state(base_key, {
-                "year_month": draft.get("year_month", ""),
                 "dose": draft.get("dose", ""),
                 "frequency": draft.get("frequency", ""),
                 "note": draft.get("note", ""),
                 "order_code": draft.get("order_code", ""),
                 "drug_type": _med_class_to_hospital_drug_type(str(draft.get("drug_class") or "ESA")),
             })
+        elif matrix_selection is not None:
+            _apply_medication_adjustment_selection(base_key, matrix_selection)
+
+        active_adjust_key = str(st.session_state.get(f"{base_key}-active-adjust-key", ""))
+        is_adjusting = bool(active_adjust_key)
+        if is_adjusting:
+            st.info("已帶入既有洗腎藥物；儲存後會新增一筆調整紀錄，不會覆蓋舊資料。")
 
         c1, c2, c3 = st.columns([1, 1, 2])
-        default_month = str(draft.get("year_month") or datetime.now().strftime("%Y%m"))
-        year_month_key = f"{base_key}-year_month"
-        st.session_state.setdefault(year_month_key, default_month)
-        year_month = c1.text_input("月份", help="格式：YYYYMM", key=year_month_key)
+        start_date_key = f"{base_key}-start_date"
+        st.session_state.setdefault(start_date_key, datetime.now().date())
+        start_date = c1.date_input("調整 / 新增日期", key=start_date_key)
         drug_type_options = _hospital_drug_type_options(hospital_drugs)
         draft_class = str(draft.get("drug_class") or "ESA")
         draft_type = _med_class_to_hospital_drug_type(draft_class)
@@ -2079,7 +2087,7 @@ def _render_dialysis_medications(
         drug_class = _hospital_drug_type_to_med_class(drug_type, drug_name)
         unit_options = _hospital_drug_unit_options(filtered_drugs, selected_drug, draft.get("unit", ""))
 
-        c1, c2, c3, c4, c5 = st.columns([1, 1, 1, 1, 1])
+        c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
         dose_key = f"{base_key}-dose"
         st.session_state.setdefault(dose_key, str(draft.get("dose", "")))
         dose = c1.text_input("劑量", key=dose_key)
@@ -2092,8 +2100,7 @@ def _render_dialysis_medications(
         frequency_key = f"{base_key}-frequency"
         st.session_state.setdefault(frequency_key, str(draft.get("frequency", "")))
         frequency = c3.text_input("頻率", key=frequency_key)
-        start_date = c4.date_input("開始日期", value=datetime.now().date(), key=f"{base_key}-start_date")
-        status = c5.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0, key=f"{base_key}-status")
+        status = c4.selectbox("狀態", ["Active", "Inactive", "Hold"], index=0, key=f"{base_key}-status")
 
         c1, c2 = st.columns([1, 2])
         order_code_default = str(draft.get("order_code") or (selected_drug.get("drug_id", "") if not selected_drug.empty else ""))
@@ -2103,18 +2110,27 @@ def _render_dialysis_medications(
         note_key = f"{base_key}-note"
         st.session_state.setdefault(note_key, str(draft.get("note", "")))
         note = c2.text_input("備註", key=note_key)
-        submitted = st.button("新增洗腎藥物", type="primary", key=f"{base_key}-submit")
+        submitted = st.button(
+            "儲存藥物調整" if is_adjusting else "新增洗腎藥物",
+            type="primary",
+            key=f"{base_key}-submit",
+        )
+        if is_adjusting and st.button("取消調整，改新增", key=f"{base_key}-cancel-adjust"):
+            _clear_medication_adjustment_state(base_key)
+            st.session_state[f"{base_key}-ignore-selection-key"] = active_adjust_key
+            st.rerun()
 
         if submitted:
-            if not year_month.strip() or not drug_name.strip():
-                st.warning("請至少填寫月份與藥名。")
+            if not drug_name.strip():
+                st.warning("請至少選擇藥名。")
             else:
                 now = _now()
+                year_month = _year_month_from_date(start_date)
                 new = pd.DataFrame([{
                     "chart_no": chart_no,
                     "deid": patient.get("deid", ""),
                     "name": patient.get("name", ""),
-                    "year_month": year_month.strip(),
+                    "year_month": year_month,
                     "order_code": order_code.strip(),
                     "drug_name": drug_name.strip(),
                     "dose": dose.strip(),
@@ -2134,7 +2150,10 @@ def _render_dialysis_medications(
                 }])
                 saved = pd.concat([medications.fillna(""), new], ignore_index=True)
                 db.replace_patient_rows("medications", chart_no, saved)
-                st.success("已新增洗腎藥物")
+                if is_adjusting:
+                    st.session_state[f"{base_key}-ignore-selection-key"] = active_adjust_key
+                _clear_medication_adjustment_state(base_key)
+                st.success("已儲存藥物調整" if is_adjusting else "已新增洗腎藥物")
                 st.rerun()
     else:
         st.info("目前角色可查看洗腎藥物，沒有編輯權限。")
@@ -2143,17 +2162,25 @@ def _render_dialysis_medications(
     if medications.empty:
         st.info("目前沒有洗腎藥物紀錄。")
         return
-    matrix = _build_medication_matrix(medications)
-    st.dataframe(matrix, use_container_width=True, hide_index=True, height=min(420, 80 + len(matrix) * 38))
+    st.caption("可點選一列既有藥物，帶入上方欄位後進行調整。")
+    matrix_display = matrix.drop(columns=["_drug_class", "_drug_name"], errors="ignore")
+    st.dataframe(
+        matrix_display,
+        use_container_width=True,
+        hide_index=True,
+        height=min(420, 80 + len(matrix_display) * 38),
+        key=matrix_key,
+        on_select="rerun",
+        selection_mode="single-row",
+    )
     with st.expander("詳細紀錄"):
         display_columns = [
-            "year_month",
+            "start_date",
             "drug_class",
             "drug_name",
             "dose",
             "unit",
             "frequency",
-            "start_date",
             "status",
             "source",
             "updated_by",
@@ -2164,7 +2191,7 @@ def _render_dialysis_medications(
         for col in display_columns:
             if col not in display.columns:
                 display[col] = ""
-        display = display.sort_values(["year_month", "drug_class", "drug_name"], ascending=[False, True, True])
+        display = display.sort_values(["start_date", "drug_class", "drug_name"], ascending=[False, True, True])
         display = display[display_columns].copy()
         display["drug_class"] = display["drug_class"].map(lambda value: DIALYSIS_MEDICATION_CLASS_LABELS.get(str(value), str(value)))
         display.columns = [COLUMN_LABELS.get(col, col) for col in display_columns]
@@ -2176,6 +2203,35 @@ def _seed_widget_state(base_key: str, values: dict[str, object]) -> None:
         key = f"{base_key}-{name}"
         if value is not None:
             st.session_state[key] = str(value)
+
+
+def _apply_medication_adjustment_selection(base_key: str, row: pd.Series) -> None:
+    selection_key = _medication_adjustment_key(row)
+    if not selection_key or st.session_state.get(f"{base_key}-ignore-selection-key") == selection_key:
+        return
+    if st.session_state.get(f"{base_key}-active-adjust-key") == selection_key:
+        return
+    drug_type = _med_class_to_hospital_drug_type(str(row.get("drug_class", "") or "ESA"))
+    drug_name = str(row.get("drug_name", "")).strip()
+    unit = str(row.get("unit", "")).strip()
+    st.session_state[f"{base_key}-active-adjust-key"] = selection_key
+    st.session_state[f"{base_key}-start_date"] = datetime.now().date()
+    st.session_state[f"{base_key}-drug_type"] = drug_type
+    if drug_name:
+        st.session_state[f"{base_key}-drug_name-{drug_type}"] = drug_name
+    st.session_state[f"{base_key}-dose"] = str(row.get("dose", "")).strip()
+    if unit:
+        st.session_state[f"{base_key}-unit-{drug_type}-{drug_name}"] = unit
+    st.session_state[f"{base_key}-frequency"] = str(row.get("frequency", "")).strip()
+    st.session_state[f"{base_key}-order_code-{drug_type}-{drug_name}"] = str(row.get("order_code", "")).strip()
+    st.session_state[f"{base_key}-note"] = str(row.get("note", "")).strip()
+    status = str(row.get("status", "")).strip()
+    if status in {"Active", "Inactive", "Hold"}:
+        st.session_state[f"{base_key}-status"] = status
+
+
+def _clear_medication_adjustment_state(base_key: str) -> None:
+    st.session_state.pop(f"{base_key}-active-adjust-key", None)
 
 
 def _hospital_drug_type_options(drugs: pd.DataFrame) -> list[str]:
@@ -2260,11 +2316,12 @@ def _infer_medication_class_from_name(drug_name: str) -> str:
 
 def _build_medication_matrix(medications: pd.DataFrame) -> pd.DataFrame:
     data = medications.copy().fillna("")
-    for col in ("year_month", "drug_class", "drug_name", "dose", "unit", "frequency"):
+    for col in ("year_month", "drug_class", "drug_name", "dose", "unit", "frequency", "start_date", "updated_at"):
         if col not in data.columns:
             data[col] = ""
-    months = sorted(
-        {str(value).strip() for value in data["year_month"].dropna().tolist() if str(value).strip()},
+    data["_event_date"] = data.apply(_medication_record_date, axis=1)
+    dates = sorted(
+        {str(value).strip() for value in data["_event_date"].dropna().tolist() if str(value).strip()},
         reverse=True,
     )
     rows: list[dict[str, str]] = []
@@ -2274,12 +2331,88 @@ def _build_medication_matrix(medications: pd.DataFrame) -> pd.DataFrame:
             DIALYSIS_MEDICATION_CLASS_LABELS.get(str(drug_class), str(drug_class)),
             str(drug_name).strip(),
         ] if part)
-        row = {"藥物": label or "未命名藥物"}
-        for month in months:
-            month_rows = group[group["year_month"].astype(str) == month]
-            row[month] = _dose_frequency_cell(month_rows)
+        row = {
+            "藥物": label or "未命名藥物",
+            "_drug_class": str(drug_class),
+            "_drug_name": str(drug_name),
+        }
+        for event_date in dates:
+            date_rows = group[group["_event_date"].astype(str) == event_date]
+            row[event_date] = _dose_frequency_cell(date_rows)
         rows.append(row)
-    return pd.DataFrame(rows, columns=["藥物", *months])
+    return pd.DataFrame(rows, columns=["藥物", *dates, "_drug_class", "_drug_name"])
+
+
+def _medication_record_date(row: pd.Series) -> str:
+    for col in ("start_date", "updated_at"):
+        value = str(row.get(col, "")).strip()
+        if value:
+            return value[:10]
+    month = str(row.get("year_month", "")).strip()
+    if len(month) == 6:
+        return f"{month[:4]}-{month[4:]}-01"
+    return month
+
+
+def _year_month_from_date(value: object) -> str:
+    if hasattr(value, "strftime"):
+        return value.strftime("%Y%m")
+    text = str(value or "").strip()
+    if len(text) >= 7 and text[4] == "-":
+        return text[:7].replace("-", "")
+    return datetime.now().strftime("%Y%m")
+
+
+def _selected_medication_from_matrix_state(
+    matrix_key: str,
+    matrix: pd.DataFrame,
+    medications: pd.DataFrame,
+) -> pd.Series | None:
+    selected_rows = _selected_dataframe_rows(matrix_key)
+    if not selected_rows or matrix.empty:
+        return None
+    row_index = selected_rows[0]
+    if row_index >= len(matrix):
+        return None
+    matrix_row = matrix.iloc[row_index]
+    rows = medications.copy().fillna("")
+    if "drug_class" not in rows.columns or "drug_name" not in rows.columns:
+        return None
+    rows = rows[
+        (rows["drug_class"].astype(str) == str(matrix_row.get("_drug_class", "")))
+        & (rows["drug_name"].astype(str) == str(matrix_row.get("_drug_name", "")))
+    ].copy()
+    if rows.empty:
+        return None
+    rows["_event_date"] = rows.apply(_medication_record_date, axis=1)
+    sort_cols = [col for col in ["_event_date", "updated_at"] if col in rows.columns]
+    rows = rows.sort_values(sort_cols) if sort_cols else rows
+    return rows.iloc[-1]
+
+
+def _selected_dataframe_rows(key: str) -> list[int]:
+    state = st.session_state.get(key)
+    if not state:
+        return []
+    selection = state.get("selection") if isinstance(state, dict) else getattr(state, "selection", None)
+    if selection is None:
+        return []
+    rows = selection.get("rows", []) if isinstance(selection, dict) else getattr(selection, "rows", [])
+    return [int(row) for row in rows or []]
+
+
+def _medication_adjustment_key(row: pd.Series) -> str:
+    row_id = str(row.get("row_id", "")).strip()
+    if row_id:
+        return row_id
+    return "|".join([
+        _medication_record_date(row),
+        str(row.get("drug_class", "")).strip(),
+        str(row.get("drug_name", "")).strip(),
+        str(row.get("dose", "")).strip(),
+        str(row.get("unit", "")).strip(),
+        str(row.get("frequency", "")).strip(),
+    ])
 
 
 def _dose_frequency_cell(rows: pd.DataFrame) -> str:
