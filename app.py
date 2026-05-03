@@ -401,6 +401,13 @@ st.markdown(
         border-color: #ea580c !important;
         color: #7c2d12 !important;
     }
+    .st-key-bed-board-list div[data-testid="stButton"] > button,
+    .st-key-handoff-reminders div[data-testid="stButton"] > button {
+        min-height: 2.2rem !important;
+        padding: 0.34rem 0.45rem !important;
+        font-size: 0.98rem !important;
+        justify-content: center !important;
+    }
     .cdss-panel {
         background: #f8fafc;
         border: 1px solid #dbeafe;
@@ -633,6 +640,14 @@ def _patient_display_chart_no(value: object) -> str:
     return f"{chart_no[:2]}***{chart_no[-2:]}"
 
 
+def _bed_patient_label(bed: object, name: object) -> str:
+    bed_text = _value_text(bed, "")
+    name_text = _patient_display_name(name)
+    if bed_text:
+        return f"{bed_text}床 {name_text}"
+    return name_text
+
+
 def _highlight_card(label: str, value: object, subvalue: str = "", tone: str = "blue") -> None:
     safe_label = escape(label)
     safe_value = escape(_value_text(value))
@@ -781,7 +796,7 @@ def main() -> None:
         and bool(selected_chart_no)
     )
     with st.container(key="desktop-workbench"):
-        list_col, detail_col = st.columns([0.8, 3.2], gap="medium")
+        list_col, detail_col = st.columns([0.65, 3.35], gap="small")
         with list_col:
             filtered = _render_bed_filters(schedules, key_prefix="bed")
             _render_due_handoff_alerts(filtered, key_prefix="handoff", container_key="handoff-reminders")
@@ -1030,10 +1045,7 @@ def _render_due_handoff_alerts(
     _alert_summary(f"待處理交班：{len(due)} 件")
     with st.container(key=container_key):
         for row in due.head(5).itertuples(index=False):
-            title = _clean_text(getattr(row, "title", ""))
-            content = _clean_text(getattr(row, "content", ""))
-            reminder_text = _truncate_text(content, 42) or title or "未填寫內容"
-            label = f"{getattr(row, 'bed', '')}床 {_patient_display_name(getattr(row, 'name', ''))}｜{reminder_text}"
+            label = _bed_patient_label(getattr(row, "bed", ""), getattr(row, "name", ""))
             if st.button(
                 label,
                 key=f"{key_prefix}-reminder-{getattr(row, 'row_id', row.chart_no)}",
@@ -1073,10 +1085,7 @@ def _render_bed_board(
         for row in schedules.itertuples(index=False):
             chart_no = str(row.chart_no)
             selected_mark = "▶ " if chart_no == selected_chart_no else ""
-            label = (
-                f"{selected_mark}{row.bed}床 {_patient_display_name(row.name)} "
-                f"{_patient_display_chart_no(row.chart_no)} AK {row.dialyzer} Ca {row.dialysate_ca}"
-            )
+            label = f"{selected_mark}{_bed_patient_label(row.bed, row.name)}"
             button_type = "primary" if chart_no == selected_chart_no else "secondary"
             if st.button(label, key=f"{key_prefix}-row-{chart_no}", use_container_width=True, type=button_type):
                 st.session_state["selected_chart_no"] = chart_no
@@ -2811,9 +2820,7 @@ def _render_treatment_trends(chart_no: str, detail: dict[str, pd.DataFrame], cur
             height=min(360, 80 + len(timeline) * 38),
             column_config={
                 "日期": st.column_config.TextColumn("日期", width="small"),
-                "月份": st.column_config.TextColumn("月份", width="small"),
-                "類型": st.column_config.TextColumn("類型", width="small"),
-                "品項": st.column_config.TextColumn("品項", width="medium"),
+                "藥名 / 項目(醫囑)": st.column_config.TextColumn("藥名 / 項目(醫囑)", width="medium"),
                 "變動": st.column_config.TextColumn("變動", width="large"),
                 "更新者": st.column_config.TextColumn("更新者", width="small"),
             },
@@ -2899,8 +2906,9 @@ def _build_intervention_timeline(meds: pd.DataFrame, orders: pd.DataFrame, selec
     rows.extend(_dialysis_order_change_events(orders, selected_month))
     if not rows:
         return pd.DataFrame()
-    timeline = pd.DataFrame(rows).sort_values(["_sort", "類型", "品項"], ascending=[False, True, True])
-    return timeline.drop(columns=["_sort"], errors="ignore").head(20)
+    timeline = pd.DataFrame(rows).sort_values(["_sort", "藥名 / 項目(醫囑)"], ascending=[False, True])
+    columns = ["日期", "藥名 / 項目(醫囑)", "變動", "更新者"]
+    return timeline.drop(columns=["_sort"], errors="ignore").reindex(columns=columns).head(20)
 
 
 def _medication_change_events(meds: pd.DataFrame, selected_month: str) -> list[dict[str, str]]:
@@ -2931,12 +2939,9 @@ def _medication_change_events(meds: pd.DataFrame, selected_month: str) -> list[d
                 continue
             else:
                 change = f"{previous_state} → {current_state}"
-            month = str(row.get("year_month", "")).strip()
             events.append({
                 "日期": _event_display_date(row, "year_month", ["start_date", "updated_at"]),
-                "月份": month,
-                "類型": "洗腎藥物",
-                "品項": _medication_item_label(row),
+                "藥名 / 項目(醫囑)": _medication_item_label(row),
                 "變動": change,
                 "更新者": _row_updated_by(row),
                 "_sort": str(row.get("_sort", "")),
@@ -2990,9 +2995,7 @@ def _dialysis_order_change_events(orders: pd.DataFrame, selected_month: str) -> 
             change = "；".join(changes)
         events.append({
             "日期": _event_display_date(row, "order_month", ["effective_date", "updated_at"]),
-            "月份": str(row.get("order_month", "")).strip(),
-            "類型": "透析醫囑",
-            "品項": "透析條件",
+            "藥名 / 項目(醫囑)": "透析條件",
             "變動": change,
             "更新者": _row_updated_by(row),
             "_sort": str(row.get("_sort", "")),
@@ -3003,23 +3006,23 @@ def _dialysis_order_change_events(orders: pd.DataFrame, selected_month: str) -> 
 
 def _medication_change_key(row: pd.Series) -> str:
     drug_class = str(row.get("drug_class", "")).strip()
+    drug_name = str(row.get("drug_name", "")).strip()
     if drug_class in {"Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER"}:
-        return "PHOSPHATE_BINDER"
-    return drug_class or str(row.get("drug_name", "")).strip()
+        return f"PHOSPHATE_BINDER:{drug_name}" if drug_name else "PHOSPHATE_BINDER"
+    return ":".join(part for part in [drug_class, drug_name] if part)
 
 
 def _medication_item_label(row: pd.Series) -> str:
     drug_class = str(row.get("drug_class", "")).strip()
-    if drug_class in {"Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER"}:
-        return "降磷藥"
-    class_label = DIALYSIS_MEDICATION_CLASS_LABELS.get(drug_class, drug_class)
     drug_name = str(row.get("drug_name", "")).strip()
+    if drug_class in {"Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER"}:
+        return "｜".join(part for part in ["降磷藥", drug_name] if part) or "降磷藥"
+    class_label = DIALYSIS_MEDICATION_CLASS_LABELS.get(drug_class, drug_class)
     return "｜".join(part for part in [class_label, drug_name] if part) or "洗腎藥物"
 
 
 def _medication_state_text(row: pd.Series) -> str:
     state = " ".join(part for part in [
-        str(row.get("drug_name", "")).strip(),
         str(row.get("dose", "")).strip(),
         str(row.get("unit", "")).strip(),
     ] if part)
