@@ -1,0 +1,47 @@
+version: 1
+last_updated: "2026-05-04"
+
+window_months: 3
+
+lab_delta_thresholds:
+  Hb: 0.3
+  Ferritin: 30
+  TSAT: 2
+  P: 0.3
+  cCa: 0.2
+  CaXP: 3
+  iPTH: 50
+  K: 0.3
+  Kt/V: 0.05
+  URR: 2
+
+frequency_per_month:
+  QW: 4
+  Q1W: 4
+  Q2W: 2
+  BIW: 8
+  TIW: 12
+  QOD: 15
+  QD: 30
+  BID: 60
+  TID: 90
+  TIDCC: 90
+  TID WITH MEALS: 90
+  QHS: 30
+
+drug_factors:
+  Darbepoetin alfa: 1
+  Epoetin alfa: 1
+  Calcium carbonate: 1
+  Sevelamer: 1
+  Lanthanum carbonate: 1
+  Cinacalcet: 1
+  Sodium zirconium cyclosilicate: 1
+
+response:
+  meaningful_exposure_increase_ratio: 1.2
+  large_exposure_increase_ratio: 1.5
+  minimal_lab_response_ratio: 1.03
+  suggested_increase_percent: 25
+  suggested_small_increase_percent: 15
+  suggested_decrease_percent: 25

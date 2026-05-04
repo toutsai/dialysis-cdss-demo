@@ -12,10 +12,14 @@ import streamlit as st
 
 from src import db
 from src.domain.entities import LabResult, Medication
-from src.domain.dose_adjustment import build_dose_adjustments
-from src.domain.rules import Thresholds, evaluate_month
+from src.domain.trend_recommendation import (
+    DialysisOrderTrendRecord,
+    MedicationTrendRecord,
+    TreatmentTrendSuggestion,
+    build_trend_recommendations,
+)
 from src.services.notify import notify_new_pending_problem
-from src.settings import load_dose_rules, save_dose_rules
+from src.settings import load_dose_rules, load_trend_rules, save_dose_rules
 
 
 COLUMN_LABELS = {
@@ -532,6 +536,25 @@ st.markdown(
         line-height: 1.45;
         padding: 0.65rem 0.72rem;
         margin-top: 0.4rem;
+    }
+    .cdss-rec-suggestion-title {
+        color: inherit;
+        font-size: 1rem;
+        font-weight: 900;
+        line-height: 1.4;
+    }
+    .cdss-rec-suggestion-rationale {
+        color: #475569;
+        font-size: 0.88rem;
+        font-weight: 700;
+        line-height: 1.45;
+        margin-top: 0.32rem;
+    }
+    .cdss-rec-suggestion.info {
+        background: #eff6ff;
+        border-color: #bfdbfe;
+        border-left-color: #2563eb;
+        color: #1e3a8a;
     }
     .cdss-rec-suggestion.ok {
         background: #ecfdf5;
@@ -3074,10 +3097,9 @@ def _render_treatment_trends(chart_no: str, detail: dict[str, pd.DataFrame], cur
         st.warning("目前沒有可分析月份。")
         return
     selected_month = st.selectbox("目前月份", months_desc)
-    month_labs = labs[labs["year_month"] == selected_month].copy()
-    month_meds = meds[meds["year_month"] == selected_month].copy() if not meds.empty else pd.DataFrame()
-    lab_entities = _lab_entities(month_labs)
-    med_entities = _med_entities(month_meds)
+    lab_entities = _lab_entities(labs[labs["year_month"].astype(str) <= selected_month].copy())
+    med_records = _medication_trend_records(meds)
+    order_records = _dialysis_order_trend_records(orders)
 
     with st.container(key="treatment-trends-panel"):
         _render_treatment_intro(selected_month)
@@ -3116,26 +3138,24 @@ def _render_treatment_trends(chart_no: str, detail: dict[str, pd.DataFrame], cur
             )
 
         st.markdown("### 4. 建議區塊")
-        recs = evaluate_month(
-            chart_no=chart_no,
-            year_month=selected_month,
+        trend_suggestions = build_trend_recommendations(
+            selected_month=selected_month,
             labs=lab_entities,
-            medications=med_entities,
-            thresholds=Thresholds(),
+            medications=med_records,
+            dialysis_orders=order_records,
+            dose_rules=rules,
+            trend_rules=load_trend_rules(),
         )
-        dose_suggestions = build_dose_adjustments(lab_entities, med_entities, rules)
         _render_suggestion_cards(
             chart_no=chart_no,
             selected_month=selected_month,
-            labs=month_labs,
             meds=meds,
             orders=orders,
-            recommendations=recs,
-            dose_suggestions=dose_suggestions,
+            trend_suggestions=trend_suggestions,
             can_edit=_can_edit(current_role, "dialysis_medications") or _can_edit(current_role, "dialysis_orders"),
         )
         st.markdown(
-            '<div class="cdss-rec-note">建議僅供輔助，最終仍由醫師確認；同意後會先建立草稿，再回到醫囑或藥物頁籤正式儲存。</div>',
+            '<div class="cdss-rec-note">建議僅供輔助，最終仍由醫師確認；點選建議只會帶入草稿，必須到藥物或醫囑頁籤按儲存才會成為正式紀錄。</div>',
             unsafe_allow_html=True,
         )
 
@@ -3419,69 +3439,52 @@ def _render_suggestion_cards(
     *,
     chart_no: str,
     selected_month: str,
-    labs: pd.DataFrame,
     meds: pd.DataFrame,
     orders: pd.DataFrame,
-    recommendations: list,
-    dose_suggestions: list,
+    trend_suggestions: list[TreatmentTrendSuggestion],
     can_edit: bool,
 ) -> None:
     c1, c2, c3 = st.columns(3)
-    anemia = [s for s in dose_suggestions if s.drug_class in {"ESA", "IRON"}]
-    mbd = [s for s in dose_suggestions if s.drug_class in {"CKD-MBD"}]
-    adequacy = _adequacy_suggestions(labs, orders, selected_month)
+    anemia = _trend_suggestion_group(trend_suggestions, "anemia")
+    mbd = _trend_suggestion_group(trend_suggestions, "mbd")
+    adequacy = _trend_suggestion_group(trend_suggestions, "adequacy")
 
     with c1:
         _recommendation_card(
             title="貧血 / ESA / 鐵劑",
             variant="anemia",
             icon="Hb",
-            evidence=[
-                f"Hb {_format_lab_value(_lab_value_for_month(labs, selected_month, 'Hb'))}",
-                f"Ferritin {_format_lab_value(_lab_value_for_month(labs, selected_month, 'Ferritin'))}",
-                f"TSAT {_format_lab_value(_lab_value_for_month(labs, selected_month, 'TSAT'))}",
-                f"目前治療：{_current_med_summary(meds, {'ESA', 'IRON_IV'}, selected_month)}",
-            ],
-            suggestions=[s.title for s in anemia] or _recommendation_titles(recommendations, {"esa", "iron"}),
+            suggestions=anemia,
         )
-        if can_edit and st.button("同意建議調整", key=f"accept-anemia-{chart_no}-{selected_month}", use_container_width=True):
-            _seed_medication_draft_from_suggestion(chart_no, selected_month, meds, anemia, "ESA")
+        _render_trend_suggestion_actions(chart_no, selected_month, meds, orders, anemia, can_edit, "anemia")
 
     with c2:
         _recommendation_card(
             title="CKD-MBD / 鈣磷副甲狀腺",
             variant="mbd",
             icon="P",
-            evidence=[
-                f"P {_format_lab_value(_lab_value_for_month(labs, selected_month, 'P'))}",
-                f"cCa {_format_lab_value(_lab_value_for_month(labs, selected_month, 'cCa'))}",
-                f"CaXP {_format_lab_value(_lab_value_for_month(labs, selected_month, 'CaXP'))}",
-                f"iPTH {_format_lab_value(_lab_value_for_month(labs, selected_month, 'iPTH'))}",
-                f"目前治療：{_current_med_summary(meds, {'Phosphate binder', 'CALCIUM_BINDER', 'NON_CALCIUM_BINDER', 'PTH'}, selected_month)}",
-            ],
-            suggestions=[s.title for s in mbd] or _recommendation_titles(recommendations, {"mbd"}),
+            suggestions=mbd,
         )
-        if can_edit and st.button("同意建議調整", key=f"accept-mbd-{chart_no}-{selected_month}", use_container_width=True):
-            _seed_medication_draft_from_suggestion(chart_no, selected_month, meds, mbd, "CALCIUM_BINDER")
+        _render_trend_suggestion_actions(chart_no, selected_month, meds, orders, mbd, can_edit, "mbd")
 
     with c3:
         _recommendation_card(
             title="透析充分性 / 電解質 / 透析醫囑",
             variant="adequacy",
             icon="Kt",
-            evidence=[
-                f"Kt/V {_format_lab_value(_lab_value_for_month(labs, selected_month, 'Kt/V'))}",
-                f"URR {_format_lab_value(_lab_value_for_month(labs, selected_month, 'URR'))}",
-                f"K {_format_lab_value(_lab_value_for_month(labs, selected_month, 'K'))}",
-                f"目前透析：{_current_order_summary(orders, selected_month)}",
-            ],
             suggestions=adequacy,
         )
-        if can_edit and st.button("建立透析醫囑調整草稿", key=f"accept-adequacy-{chart_no}-{selected_month}", use_container_width=True):
-            _seed_dialysis_order_draft(chart_no, orders, selected_month)
+        _render_trend_suggestion_actions(chart_no, selected_month, meds, orders, adequacy, can_edit, "adequacy")
 
 
-def _recommendation_card(title: str, evidence: list[str], suggestions: list[str], variant: str, icon: str) -> None:
+def _trend_suggestion_group(suggestions: list[TreatmentTrendSuggestion], group: str) -> list[TreatmentTrendSuggestion]:
+    return [suggestion for suggestion in suggestions if suggestion.group == group]
+
+
+def _recommendation_card(title: str, suggestions: list[TreatmentTrendSuggestion], variant: str, icon: str) -> None:
+    evidence = []
+    if suggestions:
+        evidence = [*suggestions[0].lab_trends, *suggestions[0].treatment_trends]
     evidence_html = "".join(
         f'<div class="cdss-rec-evidence-item">{escape(str(line))}</div>'
         for line in evidence
@@ -3489,9 +3492,14 @@ def _recommendation_card(title: str, evidence: list[str], suggestions: list[str]
     )
     if suggestions:
         suggestions_html = "".join(
-            f'<div class="cdss-rec-suggestion">{escape(str(suggestion))}</div>'
+            f"""
+            <div class="cdss-rec-suggestion {_suggestion_tone_class(suggestion)}">
+                <div class="cdss-rec-suggestion-title">{escape(str(suggestion.title))}</div>
+                <div class="cdss-rec-suggestion-rationale">{escape(str(suggestion.rationale))}</div>
+            </div>
+            """
             for suggestion in suggestions
-            if str(suggestion).strip()
+            if str(suggestion.title).strip()
         )
     else:
         suggestions_html = '<div class="cdss-rec-suggestion ok">目前沒有明顯需調整建議。</div>'
@@ -3510,67 +3518,80 @@ def _recommendation_card(title: str, evidence: list[str], suggestions: list[str]
     )
 
 
-def _seed_medication_draft_from_suggestion(
+def _suggestion_tone_class(suggestion: TreatmentTrendSuggestion) -> str:
+    if str(suggestion.severity) == "Severity.OK" or str(getattr(suggestion.severity, "value", suggestion.severity)) == "ok":
+        return "ok"
+    if str(getattr(suggestion.severity, "value", suggestion.severity)) == "info":
+        return "info"
+    return ""
+
+
+def _render_trend_suggestion_actions(
     chart_no: str,
     selected_month: str,
     meds: pd.DataFrame,
-    suggestions: list,
-    fallback_class: str,
+    orders: pd.DataFrame,
+    suggestions: list[TreatmentTrendSuggestion],
+    can_edit: bool,
+    key_prefix: str,
 ) -> None:
-    suggestion = suggestions[0] if suggestions else None
-    drug_class = "ESA" if fallback_class == "ESA" else fallback_class
-    current = _latest_med_row(meds, {drug_class, "Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER"}, selected_month)
+    if not can_edit:
+        return
+    for index, suggestion in enumerate(suggestions):
+        if not suggestion.actionable:
+            continue
+        target = suggestion.target_tab or ("透析醫囑" if suggestion.target_kind == "dialysis_order" else "洗腎藥物")
+        label = f"帶入{target}草稿：{suggestion.title}"
+        if st.button(label, key=f"accept-trend-{key_prefix}-{chart_no}-{selected_month}-{index}", use_container_width=True):
+            if suggestion.target_kind == "dialysis_order":
+                _seed_dialysis_order_draft_from_trend_suggestion(chart_no, orders, selected_month, suggestion)
+            else:
+                _seed_medication_draft_from_trend_suggestion(chart_no, selected_month, meds, suggestion)
+
+
+def _seed_medication_draft_from_trend_suggestion(
+    chart_no: str,
+    selected_month: str,
+    meds: pd.DataFrame,
+    suggestion: TreatmentTrendSuggestion,
+) -> None:
+    draft = {key: str(value) for key, value in suggestion.draft.items()}
+    fallback_class = draft.get("drug_class") or ("ESA" if suggestion.group == "anemia" else "CALCIUM_BINDER")
+    current = _latest_med_row(meds, {fallback_class, "Phosphate binder", "CALCIUM_BINDER", "NON_CALCIUM_BINDER", "PTH"}, selected_month)
     st.session_state[f"medication-draft-{chart_no}"] = {
-        "year_month": selected_month,
-        "drug_class": drug_class,
-        "drug_name": str(current.get("drug_name", "")) if not current.empty else ("Darbepoetin alfa" if drug_class == "ESA" else ""),
-        "dose": str(getattr(suggestion, "suggested_dose", "") or current.get("dose", "")),
-        "unit": str(current.get("unit", "")) if not current.empty else ("mcg" if drug_class == "ESA" else ""),
-        "frequency": str(current.get("frequency", "")) if not current.empty else "",
-        "note": getattr(suggestion, "title", "") if suggestion else "由治療趨勢建議帶入",
+        "year_month": draft.get("year_month") or selected_month,
+        "drug_class": draft.get("drug_class") or fallback_class,
+        "drug_name": draft.get("drug_name") or (str(current.get("drug_name", "")) if not current.empty else ("Darbepoetin alfa" if fallback_class == "ESA" else "")),
+        "dose": draft.get("dose") or (str(current.get("dose", "")) if not current.empty else ""),
+        "unit": draft.get("unit") or (str(current.get("unit", "")) if not current.empty else ("mcg" if fallback_class == "ESA" else "")),
+        "frequency": draft.get("frequency") or (str(current.get("frequency", "")) if not current.empty else ""),
+        "note": draft.get("note") or suggestion.title,
     }
     st.session_state["patient_tab_target"] = "洗腎藥物"
     st.rerun()
 
 
-def _seed_dialysis_order_draft(chart_no: str, orders: pd.DataFrame, selected_month: str) -> None:
+def _seed_dialysis_order_draft_from_trend_suggestion(
+    chart_no: str,
+    orders: pd.DataFrame,
+    selected_month: str,
+    suggestion: TreatmentTrendSuggestion,
+) -> None:
+    draft = {key: str(value) for key, value in suggestion.draft.items()}
     current = _latest_order_row(orders, selected_month)
     st.session_state[f"dialysis-order-draft-{chart_no}"] = {
-        "frequency": str(current.get("frequency", "")) if not current.empty else "",
-        "shift": str(current.get("shift", "")) if not current.empty else "",
-        "bed": str(current.get("bed", "")) if not current.empty else "",
-        "dialyzer": str(current.get("dialyzer", "")) if not current.empty else "",
-        "dialysate_ca": str(current.get("dialysate_ca", "")) if not current.empty else "",
-        "dialysate_flow": str(current.get("dialysate_flow", "")) if not current.empty else "",
-        "blood_flow": str(current.get("blood_flow", "")) if not current.empty else "",
-        "dry_weight": str(current.get("dry_weight", "")) if not current.empty else "",
-        "note": "由透析充分性建議帶入，請醫師確認 AK / BF / DF / 時間 / access",
+        "frequency": draft.get("frequency") or (str(current.get("frequency", "")) if not current.empty else ""),
+        "shift": draft.get("shift") or (str(current.get("shift", "")) if not current.empty else ""),
+        "bed": draft.get("bed") or (str(current.get("bed", "")) if not current.empty else ""),
+        "dialyzer": draft.get("dialyzer") or (str(current.get("dialyzer", "")) if not current.empty else ""),
+        "dialysate_ca": draft.get("dialysate_ca") or (str(current.get("dialysate_ca", "")) if not current.empty else ""),
+        "dialysate_flow": draft.get("dialysate_flow") or (str(current.get("dialysate_flow", "")) if not current.empty else ""),
+        "blood_flow": draft.get("blood_flow") or (str(current.get("blood_flow", "")) if not current.empty else ""),
+        "dry_weight": draft.get("dry_weight") or (str(current.get("dry_weight", "")) if not current.empty else ""),
+        "note": draft.get("note") or suggestion.title,
     }
     st.session_state["patient_tab_target"] = "透析醫囑"
     st.rerun()
-
-
-def _recommendation_titles(recommendations: list, prefixes: set[str]) -> list[str]:
-    titles = []
-    for rec in recommendations:
-        rule_id = str(getattr(rec, "rule_id", ""))
-        if any(rule_id.startswith(prefix) for prefix in prefixes):
-            titles.append(str(getattr(rec, "title", "")))
-    return [title for title in titles if title]
-
-
-def _adequacy_suggestions(labs: pd.DataFrame, orders: pd.DataFrame, selected_month: str) -> list[str]:
-    suggestions: list[str] = []
-    ktv = _lab_value_for_month(labs, selected_month, "Kt/V")
-    urr = _lab_value_for_month(labs, selected_month, "URR")
-    potassium = _lab_value_for_month(labs, selected_month, "K")
-    if ktv is not None and ktv < 1.2:
-        suggestions.append("Kt/V 偏低，請評估 AK、Blood flow、Dialysate flow、透析時間與血管通路。")
-    if urr is not None and urr < 65:
-        suggestions.append("URR 偏低，請評估透析充分性與 access 問題。")
-    if potassium is not None and potassium >= 5.5:
-        suggestions.append("K 偏高，請評估飲食、透析液鉀濃度、透析充分性與降鉀藥。")
-    return suggestions
 
 
 def _has_mock_source(*frames: pd.DataFrame) -> bool:
@@ -3769,6 +3790,46 @@ def _med_entities(rows: pd.DataFrame) -> list[Medication]:
             frequency=str(row.get("frequency", "")),
             drug_class=str(row.get("drug_class", "OTHER")),
             source=str(row.get("source", "")),
+        ))
+    return out
+
+
+def _medication_trend_records(rows: pd.DataFrame) -> list[MedicationTrendRecord]:
+    out: list[MedicationTrendRecord] = []
+    if rows.empty:
+        return out
+    for row in rows.fillna("").to_dict("records"):
+        out.append(MedicationTrendRecord(
+            chart_no=str(row.get("chart_no", "")),
+            year_month=str(row.get("year_month", "")),
+            drug_class=str(row.get("drug_class", "OTHER")),
+            drug_name=str(row.get("drug_name", "")),
+            dose=str(row.get("dose", "")),
+            unit=str(row.get("unit", "")),
+            frequency=str(row.get("frequency", "")),
+            start_date=str(row.get("start_date", "")),
+            status=str(row.get("status", "")),
+        ))
+    return out
+
+
+def _dialysis_order_trend_records(rows: pd.DataFrame) -> list[DialysisOrderTrendRecord]:
+    out: list[DialysisOrderTrendRecord] = []
+    if rows.empty:
+        return out
+    for row in rows.fillna("").to_dict("records"):
+        out.append(DialysisOrderTrendRecord(
+            chart_no=str(row.get("chart_no", "")),
+            order_month=str(row.get("order_month", "")),
+            dialyzer=str(row.get("dialyzer", "")),
+            blood_flow=str(row.get("blood_flow", "")),
+            dialysate_flow=str(row.get("dialysate_flow", "")),
+            dry_weight=str(row.get("dry_weight", "")),
+            dialysate_ca=str(row.get("dialysate_ca", "")),
+            frequency=str(row.get("frequency", "")),
+            shift=str(row.get("shift", "")),
+            bed=str(row.get("bed", "")),
+            effective_date=str(row.get("effective_date", "")),
         ))
     return out
 

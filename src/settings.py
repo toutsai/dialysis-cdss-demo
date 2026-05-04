@@ -7,6 +7,7 @@ import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_DOSE_RULES_PATH = ROOT / "config" / "dose_rules.yaml"
+DEFAULT_TREND_RULES_PATH = ROOT / "config" / "trend_rules.yaml"
 
 
 def load_dose_rules(path: Path = DEFAULT_DOSE_RULES_PATH) -> dict[str, Any]:
@@ -20,3 +21,10 @@ def save_dose_rules(data: dict[str, Any], path: Path = DEFAULT_DOSE_RULES_PATH) 
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", encoding="utf-8") as f:
         yaml.safe_dump(data, f, allow_unicode=True, sort_keys=False)
+
+
+def load_trend_rules(path: Path = DEFAULT_TREND_RULES_PATH) -> dict[str, Any]:
+    if not path.exists():
+        return {}
+    with path.open("r", encoding="utf-8") as f:
+        return yaml.safe_load(f) or {}
