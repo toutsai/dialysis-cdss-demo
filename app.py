@@ -510,20 +510,51 @@ st.markdown(
         font-weight: 900;
         line-height: 1.35;
     }
-    .cdss-rec-evidence {
+    .cdss-rec-trend-blocks {
+        display: grid;
+        gap: 0.58rem;
+        margin: 0.62rem 0 0.78rem 0;
+    }
+    .cdss-rec-trend-section {
+        background: rgba(255, 255, 255, 0.78);
+        border: 1px solid #e2e8f0;
+        border-left: 5px solid #38bdf8;
+        border-radius: 12px;
+        padding: 0.52rem 0.58rem;
+    }
+    .cdss-rec-trend-section.med {
+        border-left-color: #8b5cf6;
+        background: rgba(250, 245, 255, 0.62);
+    }
+    .cdss-rec-trend-heading {
+        color: #0f172a;
+        font-size: 0.84rem;
+        font-weight: 950;
+        margin-bottom: 0.38rem;
+    }
+    .cdss-rec-trend-grid {
         display: grid;
         grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 0.35rem;
-        margin: 0.55rem 0 0.7rem 0;
     }
-    .cdss-rec-evidence-item {
-        background: rgba(255, 255, 255, 0.78);
-        border: 1px solid #e2e8f0;
-        border-radius: 9px;
+    .cdss-rec-trend-item {
+        background: rgba(255, 255, 255, 0.88);
+        border: 1px solid #dbeafe;
+        border-radius: 10px;
         color: #475569;
-        font-size: 0.9rem;
-        font-weight: 750;
-        padding: 0.36rem 0.45rem;
+        padding: 0.42rem 0.48rem;
+    }
+    .cdss-rec-trend-label {
+        color: #64748b;
+        font-size: 0.78rem;
+        font-weight: 900;
+        margin-bottom: 0.12rem;
+    }
+    .cdss-rec-trend-value {
+        color: #1e293b;
+        font-size: 0.98rem;
+        font-weight: 900;
+        line-height: 1.45;
     }
     .cdss-rec-suggestion {
         background: #fffbeb;
@@ -3482,13 +3513,16 @@ def _trend_suggestion_group(suggestions: list[TreatmentTrendSuggestion], group: 
 
 
 def _recommendation_card(title: str, suggestions: list[TreatmentTrendSuggestion], variant: str, icon: str) -> None:
-    evidence = []
+    lab_trends: list[str] = []
+    treatment_trends: list[str] = []
     if suggestions:
-        evidence = [*suggestions[0].lab_trends, *suggestions[0].treatment_trends]
-    evidence_html = "".join(
-        f'<div class="cdss-rec-evidence-item">{escape(str(line))}</div>'
-        for line in evidence
-        if str(line).strip()
+        lab_trends = suggestions[0].lab_trends
+        treatment_trends = suggestions[0].treatment_trends
+    trends_html = (
+        '<div class="cdss-rec-trend-blocks">'
+        f'{_trend_section_html("抽血報告變化", lab_trends, "lab")}'
+        f'{_trend_section_html("藥物 / 醫囑變化", treatment_trends, "med")}'
+        "</div>"
     )
     if suggestions:
         suggestions_html = "".join(
@@ -3509,11 +3543,62 @@ def _recommendation_card(title: str, suggestions: list[TreatmentTrendSuggestion]
         f'<div class="cdss-rec-illustration">{escape(icon)}</div>'
         f'<div class="cdss-rec-title">{escape(title)}</div>'
         "</div>"
-        f'<div class="cdss-rec-evidence">{evidence_html}</div>'
+        f"{trends_html}"
         f"{suggestions_html}"
         "</div>"
     )
     st.markdown(card_html, unsafe_allow_html=True)
+
+
+def _trend_section_html(title: str, lines: list[str], section_class: str) -> str:
+    items = "".join(_trend_item_html(line) for line in lines if str(line).strip())
+    if not items:
+        items = '<div class="cdss-rec-trend-item"><div class="cdss-rec-trend-value">目前沒有資料</div></div>'
+    return (
+        f'<div class="cdss-rec-trend-section {escape(section_class)}">'
+        f'<div class="cdss-rec-trend-heading">{escape(title)}</div>'
+        f'<div class="cdss-rec-trend-grid">{items}</div>'
+        "</div>"
+    )
+
+
+def _trend_item_html(line: str) -> str:
+    label, value = _split_trend_line(line)
+    return (
+        '<div class="cdss-rec-trend-item">'
+        f'<div class="cdss-rec-trend-label">{escape(label)}</div>'
+        f'<div class="cdss-rec-trend-value">{escape(value)}</div>'
+        "</div>"
+    )
+
+
+def _split_trend_line(line: str) -> tuple[str, str]:
+    text = str(line).strip()
+    known_labels = [
+        "PTH 藥物",
+        "透析醫囑",
+        "降磷藥",
+        "降鉀藥",
+        "Ferritin",
+        "TSAT",
+        "CaXP",
+        "iPTH",
+        "Kt/V",
+        "URR",
+        "ESA",
+        "Hb",
+        "cCa",
+        "P",
+        "K",
+    ]
+    for label in known_labels:
+        prefix = f"{label} "
+        if text.startswith(prefix):
+            return label, text[len(prefix):].strip()
+    parts = text.split(" ", 1)
+    if len(parts) == 2:
+        return parts[0], parts[1]
+    return "趨勢", text
 
 
 def _suggestion_tone_class(suggestion: TreatmentTrendSuggestion) -> str:
@@ -3538,8 +3623,7 @@ def _render_trend_suggestion_actions(
     for index, suggestion in enumerate(suggestions):
         if not suggestion.actionable:
             continue
-        target = suggestion.target_tab or ("透析醫囑" if suggestion.target_kind == "dialysis_order" else "洗腎藥物")
-        label = f"帶入{target}草稿：{suggestion.title}"
+        label = f"帶入草稿：{suggestion.title}"
         if st.button(label, key=f"accept-trend-{key_prefix}-{chart_no}-{selected_month}-{index}", use_container_width=True):
             if suggestion.target_kind == "dialysis_order":
                 _seed_dialysis_order_draft_from_trend_suggestion(chart_no, orders, selected_month, suggestion)
