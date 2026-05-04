@@ -3492,30 +3492,28 @@ def _recommendation_card(title: str, suggestions: list[TreatmentTrendSuggestion]
     )
     if suggestions:
         suggestions_html = "".join(
-            f"""
-            <div class="cdss-rec-suggestion {_suggestion_tone_class(suggestion)}">
-                <div class="cdss-rec-suggestion-title">{escape(str(suggestion.title))}</div>
-                <div class="cdss-rec-suggestion-rationale">{escape(str(suggestion.rationale))}</div>
-            </div>
-            """
+            (
+                f'<div class="cdss-rec-suggestion {_suggestion_tone_class(suggestion)}">'
+                f'<div class="cdss-rec-suggestion-title">{escape(str(suggestion.title))}</div>'
+                f'<div class="cdss-rec-suggestion-rationale">{escape(str(suggestion.rationale))}</div>'
+                "</div>"
+            )
             for suggestion in suggestions
             if str(suggestion.title).strip()
         )
     else:
         suggestions_html = '<div class="cdss-rec-suggestion ok">目前沒有明顯需調整建議。</div>'
-    st.markdown(
-        f"""
-        <div class="cdss-rec-card {escape(variant)}">
-            <div class="cdss-rec-top">
-                <div class="cdss-rec-illustration">{escape(icon)}</div>
-                <div class="cdss-rec-title">{escape(title)}</div>
-            </div>
-            <div class="cdss-rec-evidence">{evidence_html}</div>
-            {suggestions_html}
-        </div>
-        """,
-        unsafe_allow_html=True,
+    card_html = (
+        f'<div class="cdss-rec-card {escape(variant)}">'
+        '<div class="cdss-rec-top">'
+        f'<div class="cdss-rec-illustration">{escape(icon)}</div>'
+        f'<div class="cdss-rec-title">{escape(title)}</div>'
+        "</div>"
+        f'<div class="cdss-rec-evidence">{evidence_html}</div>'
+        f"{suggestions_html}"
+        "</div>"
     )
+    st.markdown(card_html, unsafe_allow_html=True)
 
 
 def _suggestion_tone_class(suggestion: TreatmentTrendSuggestion) -> str:
