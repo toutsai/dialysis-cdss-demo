@@ -203,6 +203,33 @@ python scripts\sync_hospital_data.py --lab-csv "D:\secure-export\labs.csv"
 
 正式 API 尚未接上前，可以先請資訊室每日匯出抽血 CSV / SFTP，再由同步程式寫入本地 SQLite 的 `lab_results`。藥物資料第一階段先由前台輸入；`medication_client.py` 只保留為未來選配。
 
+### 自動偵測資料夾新檔（排程輪詢）
+
+若醫院端是「每月固定時間把報告產到某個資料夾」，可改用 `scripts/watch_hospital_inbox.py`，掃一次資料夾、把新檔匯入後移走，搭配 cron / Windows 工作排程器定時呼叫即可：
+
+```powershell
+python scripts\watch_hospital_inbox.py --inbox-dir "D:\secure-export\inbox"
+```
+
+- 行為：掃 `--inbox-dir` 下符合 `--pattern`（預設 `*.csv`）的檔；mtime 太新（預設 60 秒內）視為還在寫入而略過，下一輪再處理。
+- 成功匯入的檔移到 `<inbox>/archive/`（帶時間戳），無法解析的移到 `<inbox>/failed/`，資料夾保持乾淨。
+- 底層 `sync_hospital_data` 對 `(source, chart_no, year_month)` 冪等，同月重跑或補正檔可安全覆蓋。
+- 每個檔與每次掃描都寫入 `exports/api_audit_logs.jsonl` 稽核。
+- 可設環境變數 `HOSPITAL_LAB_INBOX` 取代 `--inbox-dir`。
+
+排程範例：
+
+```bash
+# Linux cron：每小時整點掃一次
+0 * * * * cd /opt/dialysis-cdss && python scripts/watch_hospital_inbox.py --inbox-dir /secure-export/inbox >> /var/log/hd-inbox.log 2>&1
+```
+
+```powershell
+# Windows 工作排程器：每天 02:00
+schtasks /Create /SC DAILY /ST 02:00 /TN "HD-CDSS Lab Inbox" ^
+  /TR "python C:\dialysis-cdss\scripts\watch_hospital_inbox.py --inbox-dir D:\secure-export\inbox"
+```
+
 以下 hospital adapter 是正式 HIS/LIS/API 的替換位置：
 
 - `src/adapters/hospital/patient_client.py`
