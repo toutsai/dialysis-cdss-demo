@@ -65,9 +65,9 @@ COLUMN_LABELS = {
     "order_month": "醫囑月份",
     "dialyzer": "人工腎臟",
     "dialysate_ca": "透析液 Ca",
-    "dialysate_flow": "Dialysate flow",
-    "blood_flow": "Blood flow",
-    "dry_weight": "Dry weight",
+    "dialysate_flow": "透析液流速 Dialysate flow",
+    "blood_flow": "血液流速 Blood flow",
+    "dry_weight": "乾體重 Dry weight",
     "anticoagulant": "抗凝",
     "anticoagulant_loading": "抗凝 Loading",
     "anticoagulant_maintain": "抗凝 Maintain",
@@ -1810,11 +1810,11 @@ def _render_patient_settings(current_user: str, current_role: str) -> None:
         bed = c1.text_input("床位")
         dialyzer = c2.text_input("人工腎臟")
         dialysate_ca = c3.text_input("藥水 Ca")
-        dry_weight = c4.text_input("DW")
+        dry_weight = c4.text_input("乾體重 DW")
 
         c1, c2, c3, c4 = st.columns([1, 1, 1, 1])
-        blood_flow = c1.text_input("Blood flow")
-        dialysate_flow = c2.text_input("Dialysate flow")
+        blood_flow = c1.text_input("血液流速 Blood flow")
+        dialysate_flow = c2.text_input("透析液流速 Dialysate flow")
         anticoagulant_loading = c3.text_input("抗凝 Loading")
         anticoagulant_maintain = c4.text_input("抗凝 Maintain")
         submitted = st.form_submit_button("新增病人", type="primary")
@@ -2412,9 +2412,9 @@ def _render_dialysis_orders(
                 dialysate_ca = c4.text_input("藥水 Ca", value=str(draft.get("dialysate_ca") or current_order.get("dialysate_ca") or current_schedule.get("dialysate_ca", "")).strip())
 
                 c1, c2, c3 = st.columns(3)
-                blood_flow = c1.text_input("Blood flow", value=str(draft.get("blood_flow") or current_order.get("blood_flow", "")).strip())
-                dialysate_flow = c2.text_input("Dialysate flow", value=str(draft.get("dialysate_flow") or current_order.get("dialysate_flow", "")).strip())
-                dry_weight = c3.text_input("Dry weight", value=str(draft.get("dry_weight") or current_order.get("dry_weight", "")).strip())
+                blood_flow = c1.text_input("血液流速 Blood flow", value=str(draft.get("blood_flow") or current_order.get("blood_flow", "")).strip())
+                dialysate_flow = c2.text_input("透析液流速 Dialysate flow", value=str(draft.get("dialysate_flow") or current_order.get("dialysate_flow", "")).strip())
+                dry_weight = c3.text_input("乾體重 Dry weight", value=str(draft.get("dry_weight") or current_order.get("dry_weight", "")).strip())
 
                 c1, c2 = st.columns(2)
                 anticoagulant_loading = c1.text_input("抗凝 Loading", value=str(draft.get("anticoagulant_loading") or current_order.get("anticoagulant_loading", "")).strip())
@@ -3387,11 +3387,11 @@ def _build_patient_report_html(chart_no: str, detail: dict[str, pd.DataFrame], c
 
 def _patient_report_summary_cards(schedule: pd.Series, latest_order: pd.Series) -> str:
     values = [
-        ("Dry weight", latest_order.get("dry_weight", "")),
+        ("乾體重 Dry weight", latest_order.get("dry_weight", "")),
         ("人工腎臟 AK", latest_order.get("dialyzer", "") or schedule.get("dialyzer", "")),
         ("藥水 Ca", latest_order.get("dialysate_ca", "") or schedule.get("dialysate_ca", "")),
-        ("Blood flow", latest_order.get("blood_flow", "")),
-        ("Dialysate flow", latest_order.get("dialysate_flow", "")),
+        ("血液流速 Blood flow", latest_order.get("blood_flow", "")),
+        ("透析液流速 Dialysate flow", latest_order.get("dialysate_flow", "")),
         ("透析時間 / 頻率", latest_order.get("frequency", "") or schedule.get("frequency", "")),
         ("班別", latest_order.get("shift", "") or schedule.get("shift", "")),
         ("床位", latest_order.get("bed", "") or schedule.get("bed", "")),
