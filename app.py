@@ -604,6 +604,124 @@ st.markdown(
         padding: 0.68rem 0.78rem;
         margin-top: 0.85rem;
     }
+    .cdss-patient-report {
+        background: #ffffff;
+        border: 1px solid #dbeafe;
+        border-radius: 14px;
+        padding: 1.1rem;
+        box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06);
+        color: #0f172a;
+    }
+    .cdss-report-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 1rem;
+        border-bottom: 3px solid #bae6fd;
+        padding-bottom: 0.85rem;
+        margin-bottom: 0.95rem;
+    }
+    .cdss-report-title {
+        font-size: 1.45rem;
+        font-weight: 950;
+        line-height: 1.3;
+    }
+    .cdss-report-subtitle {
+        color: #475569;
+        font-size: 0.95rem;
+        font-weight: 700;
+        margin-top: 0.2rem;
+    }
+    .cdss-report-meta {
+        color: #334155;
+        font-size: 0.9rem;
+        font-weight: 800;
+        text-align: right;
+        line-height: 1.6;
+        min-width: 14rem;
+    }
+    .cdss-report-section {
+        margin-top: 1rem;
+    }
+    .cdss-report-section h3 {
+        color: #0f172a;
+        font-size: 1.18rem !important;
+        font-weight: 950;
+        margin: 0 0 0.5rem 0 !important;
+    }
+    .cdss-report-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 0.55rem;
+    }
+    .cdss-report-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-left: 5px solid #0284c7;
+        border-radius: 12px;
+        padding: 0.62rem 0.72rem;
+    }
+    .cdss-report-card .label {
+        color: #64748b;
+        font-size: 0.82rem;
+        font-weight: 850;
+    }
+    .cdss-report-card .value {
+        color: #0f172a;
+        font-size: 1.08rem;
+        font-weight: 950;
+        margin-top: 0.12rem;
+    }
+    .cdss-report-table {
+        width: 100%;
+        border-collapse: collapse;
+        overflow: hidden;
+        border-radius: 10px;
+        font-size: 0.92rem;
+    }
+    .cdss-report-table th {
+        background: #eff6ff;
+        color: #1e3a8a;
+        font-weight: 950;
+        text-align: left;
+        padding: 0.48rem 0.55rem;
+        border: 1px solid #dbeafe;
+    }
+    .cdss-report-table td {
+        background: #ffffff;
+        color: #0f172a;
+        font-weight: 760;
+        padding: 0.48rem 0.55rem;
+        border: 1px solid #e2e8f0;
+    }
+    .cdss-report-table td.abnormal {
+        background: #fff1f2;
+        color: #9f1239;
+        font-weight: 950;
+    }
+    .cdss-report-reminders {
+        display: grid;
+        gap: 0.45rem;
+    }
+    .cdss-report-reminder {
+        background: #fffbeb;
+        border: 1px solid #fde68a;
+        border-left: 5px solid #d97706;
+        border-radius: 10px;
+        color: #78350f;
+        font-weight: 850;
+        line-height: 1.5;
+        padding: 0.58rem 0.65rem;
+    }
+    .cdss-report-note {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        color: #475569;
+        font-size: 0.86rem;
+        line-height: 1.55;
+        padding: 0.62rem 0.7rem;
+        margin-top: 1rem;
+    }
     .cdss-patient-banner {
         background: linear-gradient(135deg, #e0f2fe 0%, #f8fafc 60%, #fef3c7 100%);
         border: 1px solid #bae6fd;
@@ -1467,6 +1585,7 @@ def _render_patient_panel(chart_no: str, current_user: str, current_role: str) -
         "透析醫囑",
         "洗腎藥物",
         "治療趨勢與調整建議",
+        "病人報告",
     ]
     tab_key = f"patient-tab-{chart_no}"
     target_tab = st.session_state.pop("patient_tab_target", None)
@@ -1498,6 +1617,8 @@ def _render_patient_panel(chart_no: str, current_user: str, current_role: str) -
         _render_dialysis_medications(chart_no, p, detail["medications"], current_user, current_role)
     elif selected_tab == "治療趨勢與調整建議":
         _render_treatment_trends(chart_no, detail, current_role)
+    elif selected_tab == "病人報告":
+        _render_patient_report(chart_no, detail, current_user)
 
 
 def _render_rule_settings(current_role: str) -> None:
@@ -3189,6 +3310,277 @@ def _render_treatment_trends(chart_no: str, detail: dict[str, pd.DataFrame], cur
             '<div class="cdss-rec-note">建議僅供輔助，最終仍由醫師確認；點選建議只會帶入草稿，必須到藥物或醫囑頁籤按儲存才會成為正式紀錄。</div>',
             unsafe_allow_html=True,
         )
+
+
+def _render_patient_report(chart_no: str, detail: dict[str, pd.DataFrame], current_user: str) -> None:
+    patient = detail["patient"]
+    if patient.empty:
+        st.warning("找不到病人資料，無法產生病人報告。")
+        return
+    report_body = _build_patient_report_html(chart_no, detail, current_user)
+    report_html = _standalone_patient_report_html(report_body)
+    st.info("這是給病人閱讀的摘要版本；不包含醫護交班、內部備註、規則引擎建議或未確認草稿。下載後可用瀏覽器列印或另存 PDF。")
+    file_name = f"patient_report_{_safe_filename(chart_no)}_{datetime.now().strftime('%Y%m%d')}.html"
+    st.download_button(
+        "下載病人報告 HTML",
+        data=report_html.encode("utf-8"),
+        file_name=file_name,
+        mime="text/html",
+        use_container_width=True,
+    )
+    st.markdown(report_body, unsafe_allow_html=True)
+
+
+def _build_patient_report_html(chart_no: str, detail: dict[str, pd.DataFrame], current_user: str) -> str:
+    patient = detail["patient"].iloc[0]
+    schedule = detail["schedule"].iloc[0] if not detail.get("schedule", pd.DataFrame()).empty else pd.Series(dtype=object)
+    labs = detail.get("lab_results", pd.DataFrame()).copy()
+    meds = detail.get("medications", pd.DataFrame()).copy()
+    orders = detail.get("dialysis_orders", pd.DataFrame()).copy()
+    selected_month = _latest_report_month(labs, meds, orders)
+    latest_order = _latest_order_row(orders, selected_month) if selected_month else pd.Series(dtype=object)
+
+    patient_name = _value_text(patient.get("name"), "未填")
+    report_date = datetime.now().strftime("%Y-%m-%d")
+    report_month_label = _format_year_month(selected_month) if selected_month else "未填"
+    summary_cards = _patient_report_summary_cards(schedule, latest_order)
+    lab_table = _patient_report_lab_table(labs, selected_month)
+    medication_table = _patient_report_medication_table(meds, selected_month)
+    reminders = _patient_report_reminders(labs, selected_month)
+    issued_by = _value_text(current_user, "系統使用者")
+
+    return (
+        '<div class="cdss-patient-report">'
+        '<div class="cdss-report-header">'
+        "<div>"
+        '<div class="cdss-report-title">透析治療摘要報告</div>'
+        f'<div class="cdss-report-subtitle">報告月份：{escape(report_month_label)}｜病人：{escape(patient_name)}</div>'
+        "</div>"
+        '<div class="cdss-report-meta">'
+        f"病歷號：{escape(_value_text(chart_no))}<br>"
+        f"報告日期：{escape(report_date)}<br>"
+        f"產生者：{escape(issued_by)}"
+        "</div>"
+        "</div>"
+        '<div class="cdss-report-section">'
+        "<h3>目前透析摘要</h3>"
+        f'<div class="cdss-report-grid">{summary_cards}</div>'
+        "</div>"
+        '<div class="cdss-report-section">'
+        "<h3>近月抽血趨勢</h3>"
+        f"{lab_table}"
+        "</div>"
+        '<div class="cdss-report-section">'
+        "<h3>目前洗腎相關藥物</h3>"
+        f"{medication_table}"
+        "</div>"
+        '<div class="cdss-report-section">'
+        "<h3>本次提醒</h3>"
+        f'<div class="cdss-report-reminders">{reminders}</div>'
+        "</div>"
+        '<div class="cdss-report-note">'
+        "本報告為透析照護摘要，提供病人與家屬理解近期治療狀況使用；實際診療與用藥仍以醫師當次評估與正式醫囑為準。"
+        "</div>"
+        "</div>"
+    )
+
+
+def _patient_report_summary_cards(schedule: pd.Series, latest_order: pd.Series) -> str:
+    values = [
+        ("Dry weight", latest_order.get("dry_weight", "")),
+        ("人工腎臟 AK", latest_order.get("dialyzer", "") or schedule.get("dialyzer", "")),
+        ("藥水 Ca", latest_order.get("dialysate_ca", "") or schedule.get("dialysate_ca", "")),
+        ("Blood flow", latest_order.get("blood_flow", "")),
+        ("Dialysate flow", latest_order.get("dialysate_flow", "")),
+        ("透析時間 / 頻率", latest_order.get("frequency", "") or schedule.get("frequency", "")),
+        ("班別", latest_order.get("shift", "") or schedule.get("shift", "")),
+        ("床位", latest_order.get("bed", "") or schedule.get("bed", "")),
+        ("血管通路", _patient_report_access(latest_order)),
+    ]
+    return "".join(_patient_report_card(label, _value_text(value)) for label, value in values)
+
+
+def _patient_report_card(label: str, value: object) -> str:
+    return (
+        '<div class="cdss-report-card">'
+        f'<div class="label">{escape(label)}</div>'
+        f'<div class="value">{escape(_value_text(value))}</div>'
+        "</div>"
+    )
+
+
+def _patient_report_lab_table(labs: pd.DataFrame, selected_month: str) -> str:
+    if labs.empty or not selected_month:
+        return '<div class="cdss-report-note">目前沒有可顯示的抽血資料。</div>'
+    items = ["Hb", "Albumin", "K", "P", "Ca", "cCa", "iPTH", "Kt/V", "URR"]
+    months = _trend_months(labs, selected_month, limit=6)
+    header = "".join(f"<th>{escape(_format_year_month(month))}</th>" for month in months)
+    rows = []
+    for item in items:
+        cells = []
+        has_value = False
+        for month in months:
+            value = _lab_value_for_month(labs, month, item)
+            has_value = has_value or value is not None
+            class_name = "abnormal" if _patient_report_lab_abnormal(item, value) else ""
+            cells.append(f'<td class="{class_name}">{escape(_format_lab_value(value, blank="-"))}</td>')
+        if has_value:
+            rows.append(
+                "<tr>"
+                f"<th>{escape(_patient_lab_label(item))}</th>"
+                + "".join(cells)
+                + "</tr>"
+            )
+    if not rows:
+        return '<div class="cdss-report-note">目前沒有可顯示的抽血資料。</div>'
+    return (
+        '<table class="cdss-report-table">'
+        f"<thead><tr><th>項目</th>{header}</tr></thead>"
+        f"<tbody>{''.join(rows)}</tbody>"
+        "</table>"
+    )
+
+
+def _patient_report_medication_table(meds: pd.DataFrame, selected_month: str) -> str:
+    rows = _patient_report_current_medications(meds, selected_month)
+    if not rows:
+        return '<div class="cdss-report-note">目前沒有洗腎相關藥物紀錄。</div>'
+    body = "".join(
+        "<tr>"
+        f"<td>{escape(row['category'])}</td>"
+        f"<td>{escape(row['name'])}</td>"
+        f"<td>{escape(row['dose'])}</td>"
+        f"<td>{escape(row['frequency'])}</td>"
+        "</tr>"
+        for row in rows
+    )
+    return (
+        '<table class="cdss-report-table">'
+        "<thead><tr><th>類別</th><th>藥名</th><th>劑量</th><th>頻率</th></tr></thead>"
+        f"<tbody>{body}</tbody>"
+        "</table>"
+    )
+
+
+def _patient_report_current_medications(meds: pd.DataFrame, selected_month: str) -> list[dict[str, str]]:
+    if meds.empty or not selected_month:
+        return []
+    rows = meds.copy().fillna("")
+    rows = rows[rows["year_month"].astype(str) <= selected_month] if "year_month" in rows.columns else rows
+    if rows.empty:
+        return []
+    for col in ("drug_class", "drug_name", "dose", "unit", "frequency", "start_date", "updated_at", "status"):
+        if col not in rows.columns:
+            rows[col] = ""
+    rows = rows[~rows["status"].astype(str).str.lower().isin({"inactive", "停用", "hold", "paused"})]
+    rows = rows.sort_values([col for col in ["drug_class", "drug_name", "year_month", "start_date", "updated_at"] if col in rows.columns])
+    out = []
+    for _, group in rows.groupby(["drug_class", "drug_name"], dropna=False, sort=True):
+        row = group.iloc[-1]
+        dose = " ".join(part for part in [str(row.get("dose", "")).strip(), str(row.get("unit", "")).strip()] if part)
+        out.append({
+            "category": DIALYSIS_MEDICATION_CLASS_LABELS.get(str(row.get("drug_class", "")), str(row.get("drug_class", "")) or "其他"),
+            "name": _value_text(row.get("drug_name")),
+            "dose": _value_text(dose),
+            "frequency": _value_text(row.get("frequency")),
+        })
+    return out
+
+
+def _patient_report_reminders(labs: pd.DataFrame, selected_month: str) -> str:
+    reminders: list[str] = []
+    hb = _lab_value_for_month(labs, selected_month, "Hb")
+    albumin = _lab_value_for_month(labs, selected_month, "Albumin")
+    potassium = _lab_value_for_month(labs, selected_month, "K")
+    phosphate = _lab_value_for_month(labs, selected_month, "P")
+    ktv = _lab_value_for_month(labs, selected_month, "Kt/V")
+    urr = _lab_value_for_month(labs, selected_month, "URR")
+    if hb is not None and hb < 10:
+        reminders.append("Hb 偏低，請依醫師安排追蹤貧血、鐵質與相關治療。")
+    if albumin is not None and albumin < 3.5:
+        reminders.append("白蛋白偏低，請與醫護團隊討論營養攝取與蛋白質補充。")
+    if potassium is not None and potassium >= 5.5:
+        reminders.append("血鉀偏高，請留意高鉀食物，並依營養師與醫師建議調整。")
+    if phosphate is not None and phosphate >= 5.5:
+        reminders.append("血磷偏高，請注意高磷食物；降磷藥若有開立，通常需依醫囑隨餐服用。")
+    if (ktv is not None and ktv < 1.2) or (urr is not None and urr < 65):
+        reminders.append("透析充分性指標偏低或需追蹤，醫療團隊會評估透析條件與血管通路。")
+    if not reminders:
+        reminders.append("本次摘要沒有明顯異常提醒，請持續規則透析並依醫囑追蹤。")
+    return "".join(f'<div class="cdss-report-reminder">{escape(text)}</div>' for text in reminders)
+
+
+def _standalone_patient_report_html(body: str) -> str:
+    css = """
+    <style>
+    body { margin: 0; padding: 24px; background: #f8fafc; font-family: Arial, "Microsoft JhengHei", sans-serif; color: #0f172a; }
+    .cdss-patient-report { max-width: 1080px; margin: 0 auto; background: #fff; border: 1px solid #dbeafe; border-radius: 14px; padding: 22px; box-shadow: 0 8px 22px rgba(15, 23, 42, 0.06); }
+    .cdss-report-header { display: flex; justify-content: space-between; gap: 16px; border-bottom: 3px solid #bae6fd; padding-bottom: 14px; margin-bottom: 16px; }
+    .cdss-report-title { font-size: 28px; font-weight: 950; line-height: 1.3; }
+    .cdss-report-subtitle { color: #475569; font-size: 16px; font-weight: 700; margin-top: 4px; }
+    .cdss-report-meta { color: #334155; font-size: 15px; font-weight: 800; text-align: right; line-height: 1.6; min-width: 220px; }
+    .cdss-report-section { margin-top: 18px; }
+    .cdss-report-section h3 { color: #0f172a; font-size: 21px; font-weight: 950; margin: 0 0 9px 0; }
+    .cdss-report-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+    .cdss-report-card { background: #f8fafc; border: 1px solid #e2e8f0; border-left: 5px solid #0284c7; border-radius: 12px; padding: 10px 12px; }
+    .cdss-report-card .label { color: #64748b; font-size: 14px; font-weight: 850; }
+    .cdss-report-card .value { color: #0f172a; font-size: 18px; font-weight: 950; margin-top: 2px; }
+    .cdss-report-table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 10px; font-size: 15px; }
+    .cdss-report-table th { background: #eff6ff; color: #1e3a8a; font-weight: 950; text-align: left; padding: 8px 9px; border: 1px solid #dbeafe; }
+    .cdss-report-table td { background: #ffffff; color: #0f172a; font-weight: 760; padding: 8px 9px; border: 1px solid #e2e8f0; }
+    .cdss-report-table td.abnormal { background: #fff1f2; color: #9f1239; font-weight: 950; }
+    .cdss-report-reminders { display: grid; gap: 7px; }
+    .cdss-report-reminder { background: #fffbeb; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 10px; color: #78350f; font-weight: 850; line-height: 1.5; padding: 10px 11px; }
+    .cdss-report-note { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; color: #475569; font-size: 14px; line-height: 1.55; padding: 10px 12px; margin-top: 18px; }
+    @media print { body { background: #fff; padding: 0; } .cdss-patient-report { box-shadow: none; border: none; border-radius: 0; } }
+    @media (max-width: 720px) { .cdss-report-header { display: block; } .cdss-report-meta { text-align: left; margin-top: 8px; } .cdss-report-grid { grid-template-columns: 1fr; } }
+    </style>
+    """
+    return f"<!doctype html><html><head><meta charset=\"utf-8\"><title>透析治療摘要報告</title>{css}</head><body>{body}</body></html>"
+
+
+def _patient_report_access(row: pd.Series) -> str:
+    if row.empty:
+        return "未填"
+    access = _value_text(row.get("vascular_access"), "")
+    if access:
+        return access
+    return " ".join(part for part in [_value_text(row.get("access_side"), ""), _value_text(row.get("access_type"), "")] if part).strip() or "未填"
+
+
+def _patient_report_lab_abnormal(item_key: str, value: float | None) -> bool:
+    return _lab_tone(item_key, value) in {"rose", "amber"}
+
+
+def _patient_lab_label(item_key: str) -> str:
+    return {
+        "Hb": "Hb 血色素",
+        "Albumin": "Albumin 白蛋白",
+        "K": "K 血鉀",
+        "P": "P 血磷",
+        "Ca": "Ca 血鈣",
+        "cCa": "cCa 校正鈣",
+        "iPTH": "iPTH 副甲狀腺素",
+        "Kt/V": "Kt/V 透析充分性",
+        "URR": "URR 尿素清除率",
+    }.get(item_key, item_key)
+
+
+def _latest_report_month(*frames: pd.DataFrame) -> str:
+    months = _all_year_months(*frames)
+    return months[-1] if months else ""
+
+
+def _format_year_month(value: str) -> str:
+    text = str(value).strip()
+    if len(text) == 6 and text.isdigit():
+        return f"{text[:4]}-{text[4:]}"
+    return text or "未填"
+
+
+def _safe_filename(value: object) -> str:
+    text = re.sub(r"[^A-Za-z0-9._-]+", "_", str(value or "").strip())
+    return text.strip("_") or "patient"
 
 
 def _render_treatment_intro(selected_month: str) -> None:
