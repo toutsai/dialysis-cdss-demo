@@ -56,7 +56,20 @@ def _needs_demo_refresh(path: Path) -> bool:
                 where source = 'demo'
                 """
             ).fetchone()
-            return int(row["month_count"] or 0) < 4
+            if int(row["month_count"] or 0) < 4:
+                return True
+            potassium_row = conn.execute(
+                """
+                select value
+                from lab_results
+                where source = 'demo'
+                  and chart_no = 'D00001'
+                  and item_key = 'K'
+                order by year_month desc
+                limit 1
+                """
+            ).fetchone()
+            return not potassium_row or float(potassium_row["value"] or 0) < 5.5
     except Exception:
         return True
 
@@ -220,6 +233,9 @@ def _lab_results(chart_no: str, deid: str, name: str, index: int, today: date) -
         month = month_start.strftime("%Y%m")
         report_date = month_start.replace(day=15).isoformat()
         patient_delta = (index % 5) * 0.12
+        potassium_value = 4.7 + (index % 4) * 0.18
+        if index == 1:
+            potassium_value = 4.9 + month_index * 0.3
         values = {
             "Hb": (10.8 - month_index * 0.35 + patient_delta, "g/dL"),
             "Albumin": (3.6 + (index % 4) * 0.12, "g/dL"),
@@ -230,7 +246,7 @@ def _lab_results(chart_no: str, deid: str, name: str, index: int, today: date) -
             "Ferritin": (280 - month_index * 42 + (index % 3) * 35, "ng/mL"),
             "TSAT": (28 - month_index * 2.7 + (index % 3) * 2, "%"),
             "iPTH": (360 + month_index * 65 + (index % 5) * 35, "pg/mL"),
-            "K": (4.7 + (index % 4) * 0.18, "mmol/L"),
+            "K": (potassium_value, "mmol/L"),
             "Kt/V": (1.38 - month_index * 0.05 - (index % 3) * 0.03, ""),
             "URR": (71 - month_index * 1.4 - (index % 3), "%"),
         }
