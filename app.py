@@ -712,6 +712,34 @@ st.markdown(
         line-height: 1.5;
         padding: 0.58rem 0.65rem;
     }
+    .cdss-report-reminder-title {
+        color: #7c2d12;
+        font-size: 0.98rem;
+        font-weight: 950;
+    }
+    .cdss-report-reminder-body {
+        color: #78350f;
+        font-size: 0.9rem;
+        font-weight: 760;
+        margin-top: 0.28rem;
+    }
+    .cdss-report-reminder-list {
+        margin: 0.35rem 0 0 1.1rem;
+        padding: 0;
+    }
+    .cdss-report-reminder-list li {
+        margin: 0.16rem 0;
+    }
+    .cdss-report-reminder-source {
+        color: #64748b;
+        font-size: 0.8rem;
+        font-weight: 700;
+        margin-top: 0.35rem;
+    }
+    .cdss-report-reminder-source a {
+        color: #2563eb;
+        text-decoration: none;
+    }
     .cdss-report-note {
         background: #f8fafc;
         border: 1px solid #e2e8f0;
@@ -3496,18 +3524,62 @@ def _patient_report_reminders(labs: pd.DataFrame, selected_month: str) -> str:
     ktv = _lab_value_for_month(labs, selected_month, "Kt/V")
     urr = _lab_value_for_month(labs, selected_month, "URR")
     if hb is not None and hb < 10:
-        reminders.append("Hb 偏低，請依醫師安排追蹤貧血、鐵質與相關治療。")
+        reminders.append(_patient_report_simple_reminder("Hb 偏低，請依醫師安排追蹤貧血、鐵質與相關治療。"))
     if albumin is not None and albumin < 3.5:
-        reminders.append("白蛋白偏低，請與醫護團隊討論營養攝取與蛋白質補充。")
+        reminders.append(_patient_report_simple_reminder("白蛋白偏低，請與醫護團隊討論營養攝取與蛋白質補充。"))
     if potassium is not None and potassium >= 5.5:
-        reminders.append("血鉀偏高，請留意高鉀食物，並依營養師與醫師建議調整。")
+        reminders.append(_patient_report_diet_reminder(
+            "血鉀偏高：請留意高鉀食物。",
+            [
+                "常見高鉀水果：香蕉、奇異果、芒果、哈密瓜、柳橙/柳橙汁、酪梨、乾果。",
+                "常見高鉀蔬菜：馬鈴薯/地瓜、南瓜、番茄、菠菜、菇類、豆類。",
+                "小技巧：蔬菜可切小塊後泡水、汆燙並倒掉湯汁；份量仍需控制。",
+            ],
+            "National Kidney Foundation：Potassium in Your CKD Diet",
+            "https://www.kidney.org/kidney-topics/potassium-your-ckd-diet",
+        ))
     if phosphate is not None and phosphate >= 5.5:
-        reminders.append("血磷偏高，請注意高磷食物；降磷藥若有開立，通常需依醫囑隨餐服用。")
+        reminders.append(_patient_report_diet_reminder(
+            "血磷偏高：請注意高磷食物與含磷添加物。",
+            [
+                "常見高磷食物：奶類/起司、巧克力/可可、堅果/花生醬、內臟、魚卵。",
+                "加工食品：香腸、熱狗、培根、披薩、速食、深色可樂或含磷酸飲料。",
+                "看標示：成分有 phos / 磷酸鹽字樣盡量避免；降磷藥若有開立，依醫囑隨餐服用。",
+            ],
+            "National Kidney Foundation：Phosphorus and Your CKD Diet",
+            "https://www.kidney.org/kidney-topics/phosphorus-and-your-ckd-diet",
+        ))
     if (ktv is not None and ktv < 1.2) or (urr is not None and urr < 65):
-        reminders.append("透析充分性指標偏低或需追蹤，醫療團隊會評估透析條件與血管通路。")
+        reminders.append(_patient_report_simple_reminder("透析充分性指標偏低或需追蹤，醫療團隊會評估透析條件與血管通路。"))
     if not reminders:
-        reminders.append("本次摘要沒有明顯異常提醒，請持續規則透析並依醫囑追蹤。")
-    return "".join(f'<div class="cdss-report-reminder">{escape(text)}</div>' for text in reminders)
+        reminders.append(_patient_report_simple_reminder("本次摘要沒有明顯異常提醒，請持續規則透析並依醫囑追蹤。"))
+    return "".join(reminders)
+
+
+def _patient_report_simple_reminder(text: str) -> str:
+    return (
+        '<div class="cdss-report-reminder">'
+        f'<div class="cdss-report-reminder-title">{escape(text)}</div>'
+        "</div>"
+    )
+
+
+def _patient_report_diet_reminder(title: str, bullets: list[str], source_label: str, source_url: str) -> str:
+    items = "".join(f"<li>{escape(item)}</li>" for item in bullets)
+    safe_url = escape(source_url, quote=True)
+    return (
+        '<div class="cdss-report-reminder">'
+        f'<div class="cdss-report-reminder-title">{escape(title)}</div>'
+        '<div class="cdss-report-reminder-body">'
+        "<ul class=\"cdss-report-reminder-list\">"
+        f"{items}"
+        "</ul>"
+        '<div class="cdss-report-reminder-source">'
+        f'衛教參考：<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{escape(source_label)}</a>'
+        "</div>"
+        "</div>"
+        "</div>"
+    )
 
 
 def _standalone_patient_report_html(body: str) -> str:
@@ -3531,6 +3603,12 @@ def _standalone_patient_report_html(body: str) -> str:
     .cdss-report-table td.abnormal { background: #fff1f2; color: #9f1239; font-weight: 950; }
     .cdss-report-reminders { display: grid; gap: 7px; }
     .cdss-report-reminder { background: #fffbeb; border: 1px solid #fde68a; border-left: 5px solid #d97706; border-radius: 10px; color: #78350f; font-weight: 850; line-height: 1.5; padding: 10px 11px; }
+    .cdss-report-reminder-title { color: #7c2d12; font-size: 16px; font-weight: 950; }
+    .cdss-report-reminder-body { color: #78350f; font-size: 15px; font-weight: 760; margin-top: 5px; }
+    .cdss-report-reminder-list { margin: 6px 0 0 18px; padding: 0; }
+    .cdss-report-reminder-list li { margin: 3px 0; }
+    .cdss-report-reminder-source { color: #64748b; font-size: 13px; font-weight: 700; margin-top: 6px; }
+    .cdss-report-reminder-source a { color: #2563eb; text-decoration: none; }
     .cdss-report-note { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; color: #475569; font-size: 14px; line-height: 1.55; padding: 10px 12px; margin-top: 18px; }
     @media print { body { background: #fff; padding: 0; } .cdss-patient-report { box-shadow: none; border: none; border-radius: 0; } }
     @media (max-width: 720px) { .cdss-report-header { display: block; } .cdss-report-meta { text-align: left; margin-top: 8px; } .cdss-report-grid { grid-template-columns: 1fr; } }
