@@ -34,6 +34,11 @@ Streamlit 前台與規則引擎
   - 寫 audit log
 - `scripts/sync_hospital_data.py`
   - 可手動執行同步，之後可交給 Windows 工作排程或院內 cron
+- `src/services/hospital_inbox.py` / `scripts/watch_hospital_inbox.py`
+  - 醫院端「每月固定時間把報告丟到資料夾」時使用
+  - 掃一次資料夾 → 匯入新檔 → 成功移到 `archive/`、失敗移到 `failed/`
+  - mtime 太新的檔視為仍在寫入，留待下一輪（避免讀到半寫入檔）
+  - 設定 `HOSPITAL_LAB_INBOX` 或 `--inbox-dir`，搭配 cron / 工作排程器定時呼叫
 
 ## CSV bridge 格式
 
